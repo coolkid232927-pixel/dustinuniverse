@@ -1,0 +1,4 @@
+.admin h1{margin:0 0 12px}
+.admin .list{list-style:disc}
+.admin code{background:#1a1a27; padding:2px 6px; border-radius:6px}
+.btn{padding:8px 12px;border-radius:10px;border:1px solid #2a2a3a;background:#1a1a27;color:var(--text);cursor:pointer}

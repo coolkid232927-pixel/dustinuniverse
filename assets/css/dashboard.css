@@ -1,0 +1,5 @@
+.grid-3{display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:16px}
+.card{background:var(--panel); border:1px solid #222433; padding:16px; border-radius:14px}
+.list{margin:0; padding-left:18px}
+.empty{color:var(--muted)}
+.subtle{color:var(--muted); font-size:.9rem}

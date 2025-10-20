@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Settings • Dustin Universe</title>
+  <meta name="description" content="Customize Dustin Universe admin and site settings." />
+  <link rel="icon" href="/images/logo.svg" />
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="/assets/css/base.css" />
+  <link rel="stylesheet" href="/assets/css/settings.css" />
+
+  <style>
+    /* Page niceties */
+    .topbar{display:flex;gap:12px;align-items:center;justify-content:space-between;margin-bottom:16px}
+    .btn{padding:8px 12px;border-radius:10px;border:1px solid #2a2a3a;background:#1a1a27;color:var(--text);cursor:pointer}
+    .btn.brand{border-color:var(--brand)}
+    .muted{color:var(--muted)}
+    .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+    .card{background:var(--panel);border:1px solid #222433;padding:16px;border-radius:14px}
+    .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    label{display:grid;gap:6px;margin:.4rem 0}
+    input,select,textarea{padding:10px;border-radius:10px;border:1px solid #2a2a3a;background:#0f0f18;color:var(--text)}
+    .hint{font-size:.9rem;color:var(--muted)}
+    .kbd{font: .9rem/1.2 ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; background:#12121c;border:1px solid #2a2a3a;border-radius:6px;padding:2px 6px}
+    .sep{height:1px;background:#222433;margin:16px 0}
+  </style>
+</head>
+
+<body>
+  <header class="site-header">
+    <a class="brand" href="/pages/admin/dashboard.html">← Dashboard</a>
+    <nav class="site-nav">
+      <a href="/pages/admin/dashboard.html">Dashboard</a>
+      <a href="/pages/admin/blog.html">Editor</a>
+      <a href="/pages/admin/users.html">Users</a>
+      <a href="/pages/admin/teams.html">Teams</a>
+      <a href="/pages/admin/settings.html" aria-current="page">Settings</a>
+    </nav>
+  </header>
+
+  <main>
+    <div class="topbar">
+      <h1>Settings</h1>
+      <span id="whoami" class="muted">Loading…</span>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs" role="tablist" aria-label="Settings tabs">
+      <button class="tab active" data-tab="profile" role="tab" aria-selected="true">Profile</button>
+      <button class="tab" data-tab="home" role="tab">Home</button>
+      <button class="tab" data-tab="roles" role="tab">Roles</button>
+      <button class="tab" data-tab="appearance" role="tab">Appearance</button>
+      <button class="tab" data-tab="notifications" role="tab">Notifications</button>
+      <button class="tab" data-tab="security" role="tab">Security</button>
+    </div>
+
+    <!-- Profile -->
+    <section id="tab-profile" class="tabpanel active" role="tabpanel" aria-labelledby="profile">
+      <div class="grid2">
+        <div class="card">
+          <h2>Your Profile</h2>
+          <label>Display name
+            <input id="displayName" placeholder="Your name" />
+          </label>
+          <label>Bio
+            <textarea id="bio" rows="3" placeholder="Short bio (optional)"></textarea>
+          </label>
+          <button id="saveProfile" class="btn brand">Save Profile</button>
+          <p class="hint">Your email and role are managed by admins.</p>
+        </div>
+
+        <div class="card">
+          <h2>Preferences</h2>
+          <label>Time format
+            <select id="timeFormat">
+              <option value="12" selected>12-hour</option>
+              <option value="24">24-hour</option>
+            </select>
+          </label>
+          <label>Editor: autosave every (seconds)
+            <input type="number" id="autosaveSec" min="0" value="30" />
+          </label>
+          <button id="savePrefs" class="btn">Save Preferences</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Home -->
+    <section id="tab-home" class="tabpanel" role="tabpanel" aria-labelledby="home">
+      <div class="grid2">
+        <div class="card">
+          <h2>Home Page Options</h2>
+          <label class="row">
+            <input type="checkbox" id="optCarousel" checked />
+            Enable auto-rotate carousel
+          </label>
+          <label>Hero tagline
+            <input id="optTagline" placeholder="Random images. Fun posts." />
+          </label>
+          <label>Featured post slug (optional)
+            <input id="featuredSlug" placeholder="my-first-post" />
+          </label>
+          <button id="saveHome" class="btn brand">Save Home Settings</button>
+          <p class="hint">These settings affect the public home page.</p>
+        </div>
+
+        <div class="card">
+          <h2>SEO</h2>
+          <label>Site description
+            <textarea id="siteDescription" rows="3" placeholder="A short description for search engines."></textarea>
+          </label>
+          <label>Open Graph image URL
+            <input id="ogImage" placeholder="https://example.com/og.jpg" />
+          </label>
+          <button id="saveSEO" class="btn">Save SEO</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Roles -->
+    <section id="tab-roles" class="tabpanel" role="tabpanel" aria-labelledby="roles">
+      <div class="card">
+        <h2>Roles & Teams</h2>
+        <p class="hint">Only <strong>owner</strong> and <strong>admin</strong> can change roles.</p>
+
+        <div class="grid2">
+          <div>
+            <label>User email
+              <input id="roleEmail" placeholder="user@example.com" />
+            </label>
+            <label>Role
+              <select id="roleSelect">
+                <option>owner</option><option selected>admin</option><option>moderator</option>
+                <option>editor_in_chief</option><option>editor</option><option>publisher</option>
+                <option>author</option><option>viewer</option>
+              </select>
+            </label>
+            <label>Teams (comma)
+              <input id="roleTeams" placeholder="news, tech" />
+            </label>
+            <button id="saveRole" class="btn brand">Save Role</button>
+          </div>
+
+          <div>
+            <h3>Invite Defaults</h3>
+            <p class="hint">When creating new invite keys in <span class="kbd">Users</span>, you choose role + teams there. This panel lets you set suggested defaults.</p>
+            <label>Default invite role
+              <select id="defaultInviteRole">
+                <option>admin</option><option>moderator</option><option>editor_in_chief</option>
+                <option>editor</option><option>publisher</option><option>author</option><option selected>viewer</option>
+              </select>
+            </label>
+            <label>Default invite teams
+              <input id="defaultInviteTeams" placeholder="general" />
+            </label>
+            <button id="saveInviteDefaults" class="btn">Save Invite Defaults</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Appearance -->
+    <section id="tab-appearance" class="tabpanel" role="tabpanel" aria-labelledby="appearance">
+      <div class="grid2">
+        <div class="card">
+          <h2>Brand</h2>
+          <label>Brand name
+            <input id="brandName" placeholder="Dustin Universe" />
+          </label>
+          <label>Accent color
+            <input id="accentColor" type="color" />
+          </label>
+          <button id="saveAppearance" class="btn brand">Save Appearance</button>
+        </div>
+
+        <div class="card">
+          <h2>Logo</h2>
+          <p class="hint">Replace <span class="kbd">/images/logo.svg</span> with your own file.</p>
+          <label>Logo URL
+            <input id="logoUrl" placeholder="/images/logo.svg" />
+          </label>
+          <button id="saveLogo" class="btn">Save Logo</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Notifications -->
+    <section id="tab-notifications" class="tabpanel" role="tabpanel" aria-labelledby="notifications">
+      <div class="card">
+        <h2>Email Notifications</h2>
+        <label class="row"><input type="checkbox" id="notifyPostApproved" /> Email me when my post is approved</label>
+        <label class="row"><input type="checkbox" id="notifyComments" /> Email me for new comments</label>
+        <label class="row"><input type="checkbox" id="notifyMentions" /> Email me when I’m @mentioned</label>
+        <button id="saveNotifications" class="btn brand">Save Notifications</button>
+      </div>
+    </section>
+
+    <!-- Security -->
+    <section id="tab-security" class="tabpanel" role="tabpanel" aria-labelledby="security">
+      <div class="grid2">
+        <div class="card">
+          <h2>Password</h2>
+          <label>New password
+            <input type="password" id="newPassword" minlength="8" placeholder="Minimum 8 characters" />
+          </label>
+          <button id="changePassword" class="btn brand">Change password</button>
+          <p id="secMsg" class="muted" role="status"></p>
+        </div>
+
+        <div class="card">
+          <h2>Session</h2>
+          <p class="hint">If something looks off, sign out and back in.</p>
+          <div class="row">
+            <button id="signOutBtn" class="btn">Sign out</button>
+            <button id="reloadBtn" class="btn">Reload</button>
+          </div>
+          <div class="sep"></div>
+          <p class="hint">Autosave in editor can be toggled in <span class="kbd">Profile → Preferences</span>.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">© <span id="year"></span> Dustin Universe.</footer>
+
+  <!-- Scripts -->
+  <script src="/assets/js/firebase.js" defer></script>
+  <script src="/assets/js/auth-guard.js" defer></script>
+  <script src="/assets/js/admin-authz.js" defer></script>
+  <script src="/assets/js/admin-settings.js" defer></script>
+
+  <!-- Lightweight tab switching & glue (the heavy lifting is in admin-settings.js) -->
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      // Tabs
+      document.querySelectorAll('.tab').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.tab, .tabpanel').forEach(el => el.classList.remove('active'));
+          btn.classList.add('active');
+          document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+        });
+      });
+
+      // Whoami
+      const wait = () => window.loadMe ? Promise.resolve() : new Promise(r=>setTimeout(r,50)).then(wait);
+      await wait();
+      const me = await window.loadMe();
+      if (me) document.getElementById('whoami').textContent =
+        `${me.displayName || me.email} • ${me.role}${me.teams?.length ? ' • ' + me.teams.join(', ') : ''}`;
+
+      // Quick actions
+      document.getElementById('signOutBtn').addEventListener('click', () => {
+        window.fb.signOut().then(() => location.href = '/pages/admin/index.html');
+      });
+      document.getElementById('reloadBtn').addEventListener('click', () => location.reload());
+    });
+  </script>
+  <script src="/assets/js/main.js" defer></script>
+</body>
+</html>

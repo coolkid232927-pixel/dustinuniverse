@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Blog Editor • Dustin Universe</title>
+  <meta name="description" content="Create and edit blog posts for Dustin Universe." />
+  <link rel="icon" href="/images/logo.svg" />
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="/assets/css/base.css" />
+  <link rel="stylesheet" href="/assets/css/editor.css" />
+
+  <!-- Page niceties (scoped) -->
+  <style>
+    .editor { display: grid; grid-template-columns: 2fr 1.1fr; gap: 16px; }
+    @media (max-width: 1000px) { .editor { grid-template-columns: 1fr; } }
+
+    .card { background: var(--panel); border: 1px solid #222433; padding: 16px; border-radius: 14px; }
+    .fields label { display: grid; gap: 6px; margin: .5rem 0; }
+    .fields input, .fields textarea {
+      padding: 10px; border-radius: 10px; border: 1px solid #2a2a3a; background: #0f0f18; color: var(--text);
+    }
+    .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .gap { gap: 10px; }
+    .btn { padding: 8px 12px; border-radius: 10px; border: 1px solid #2a2a3a; background: #1a1a27; color: var(--text); cursor: pointer; }
+    .btn.brand { border-color: var(--brand); }
+    .btn.warn { border-color: #654; color: #f0caca; }
+    .muted { color: var(--muted); }
+    .preview { border: 1px solid #222433; border-radius: 12px; padding: 12px; background: #11111b; max-height: 60vh; overflow: auto; }
+    .list { margin: 0; padding-left: 18px; }
+    .toolbar { display: flex; gap: 8px; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .toolbar .left, .toolbar .right { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .pill { padding: 4px 10px; border-radius: 999px; border: 1px solid #2a2a3a; background: #12121c; color: var(--text); }
+    .status-dot { width: 10px; height: 10px; border-radius: 999px; background: #5a5a6a; display: inline-block; }
+    .status-dot.published { background: #79d392; }
+    .kbd { font: .9rem/1.2 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background:#12121c; border:1px solid #2a2a3a; border-radius:6px; padding:2px 6px }
+  </style>
+</head>
+
+<body>
+  <header class="site-header">
+    <a class="brand" href="/pages/admin/dashboard.html">← Dashboard</a>
+    <nav class="site-nav" aria-label="Admin">
+      <a href="/pages/admin/dashboard.html">Dashboard</a>
+      <a href="/pages/admin/blog.html" aria-current="page">Editor</a>
+      <a href="/pages/admin/users.html">Users</a>
+      <a href="/pages/admin/teams.html">Teams</a>
+      <a href="/pages/admin/settings.html">Settings</a>
+    </nav>
+  </header>
+
+  <main>
+    <!-- Top toolbar -->
+    <div class="toolbar card">
+      <div class="left">
+        <strong>Blog Editor</strong>
+        <span id="who" class="muted">Loading user…</span>
+        <span id="status" class="pill"><span class="status-dot" id="statusDot"></span> Draft</span>
+      </div>
+      <div class="right">
+        <input id="search" class="pill" placeholder="Search posts…" title="Type to filter posts on the right" />
+        <select id="teamScope" class="pill" title="Filter by team">
+          <option value="">All teams</option>
+        </select>
+        <button id="newPost" class="btn">New</button>
+        <button id="save" class="btn">Save <span class="kbd">Ctrl/Cmd+S</span></button>
+        <button id="publish" class="btn brand">Publish</button>
+      </div>
+    </div>
+
+    <!-- Editor layout -->
+    <section class="editor">
+      <!-- Left: Fields -->
+      <section class="editor__left card">
+        <div class="fields">
+          <label>Title
+            <input id="title" placeholder="Post title" />
+          </label>
+
+          <label>Slug
+            <input id="slug" placeholder="auto-from-title" />
+          </label>
+
+          <div class="row">
+            <label style="flex:1">Teams
+              <input id="postTeams" placeholder="news, tech" />
+            </label>
+            <label style="flex:1">Tags
+              <input id="tags" placeholder="update, tutorial" />
+            </label>
+          </div>
+
+          <label>Excerpt
+            <textarea id="excerpt" rows="3" placeholder="Short summary for cards"></textarea>
+          </label>
+
+          <label>Body
+            <textarea id="body" rows="14" placeholder="Write your post here (Markdown or plain text)"></textarea>
+          </label>
+
+          <div class="row">
+            <label class="row"><input type="checkbox" id="published" /> Mark as published</label>
+            <span id="msg" class="muted">Unsaved</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Right: List + Preview -->
+      <aside class="editor__right card">
+        <h2>Posts</h2>
+        <ul id="postList" class="list" aria-live="polite">
+          <li class="muted">Loading posts…</li>
+        </ul>
+
+        <h3 style="margin-top:1rem">Preview</h3>
+        <article id="preview" class="preview">
+          <h3 class="muted">Start typing to see a live preview…</h3>
+        </article>
+      </aside>
+    </section>
+  </main>
+
+  <footer class="site-footer">© <span id="year"></span> Dustin Universe.</footer>
+
+  <!-- Scripts -->
+  <script src="/assets/js/firebase.js" defer></script>
+  <script src="/assets/js/auth-guard.js" defer></script>
+  <script src="/assets/js/admin-authz.js" defer></script>
+  <script src="/assets/js/admin-editor.js" defer></script>
+  <script src="/assets/js/main.js" defer></script>
+
+  <!-- Lightweight page glue: live preview, toolbar behavior, and small helpers -->
+  <script>
+    (function () {
+      const $ = (id) => document.getElementById(id);
+
+      function setStatus(published) {
+        const pill = $('status');
+        const dot = $('statusDot');
+        if (published) {
+          pill.innerHTML = '<span class="status-dot published" id="statusDot"></span> Published';
+        } else {
+          pill.innerHTML = '<span class="status-dot" id="statusDot"></span> Draft';
+        }
+      }
+
+      // Populate user + teams in toolbar
+      async function initUserBadge() {
+        const wait = () => window.loadMe ? Promise.resolve() : new Promise(r=>setTimeout(r,50)).then(wait);
+        await wait();
+        const me = await window.loadMe();
+        if (me) {
+          $('who').textContent = `${me.displayName || me.email} • ${me.role}${me.teams?.length ? ' • ' + me.teams.join(', ') : ''}`;
+          // Team dropdown
+          const set = new Set(me.teams || []);
+          try {
+            const snap = await window.fb.getDocs(window.fb.c('teams'));
+            snap.forEach(d => set.add(d.id));
+          } catch(_) {}
+          [...set].sort().forEach(t => {
+            const opt = document.createElement('option');
+            opt.value = t; opt.textContent = t;
+            $('teamScope').appendChild(opt);
+          });
+        }
+      }
+
+      // Live preview
+      function updatePreview() {
+        const title = $('title').value.trim() || 'Untitled';
+        const excerpt = $('excerpt').value.trim();
+        const body = $('body').value.trim();
+        const tags = $('tags').value.trim();
+        const teams = $('postTeams').value.trim();
+
+        $('preview').innerHTML = `
+          <h2>${title}</h2>
+          ${excerpt ? `<p><em>${excerpt}</em></p>` : ''}
+          <div>${(body || '').replace(/\\n/g,'<br/>')}</div>
+          <hr />
+          <p class="muted">Teams: ${teams || '—'}${tags ? ' • Tags: ' + tags : ''}</p>
+        `;
+      }
+
+      // Wire preview updates
+      document.addEventListener('input', (e) => {
+        if (['title', 'excerpt', 'body', 'tags', 'postTeams', 'published'].includes(e.target.id)) {
+          updatePreview();
+          if (e.target.id === 'published') setStatus(e.target.checked);
+        }
+      });
+
+      // Keyboard: Ctrl/Cmd+S -> Save
+      document.addEventListener('keydown', (e) => {
+        const sKey = e.key.toLowerCase() === 's' && (e.ctrlKey || e.metaKey);
+        if (sKey) {
+          e.preventDefault();
+          $('save').click();
+        }
+      });
+
+      // New post clears fields
+      $('newPost').addEventListener('click', () => {
+        ['title','slug','excerpt','body','tags','postTeams'].forEach(id => $(id).value = '');
+        $('published').checked = false;
+        setStatus(false);
+        $('msg').textContent = 'New draft';
+        $('title').focus();
+        updatePreview();
+      });
+
+      // Hook publish toggle to status pill
+      $('published').addEventListener('change', () => setStatus($('published').checked));
+
+      // Expose team filter to admin-editor.js (used for list filtering)
+      $('teamScope').addEventListener('change', () => {
+        window.__editorScope = $('teamScope').value;
+        document.dispatchEvent(new CustomEvent('du:editor-scope'));
+      });
+
+      // Expose search term to admin-editor.js
+      $('search').addEventListener('input', () => {
+        clearTimeout(window.__edSearchTimer);
+        window.__edSearchTimer = setTimeout(() => {
+          window.__editorSearch = $('search').value.trim().toLowerCase();
+          document.dispatchEvent(new CustomEvent('du:editor-search'));
+        }, 200);
+      });
+
+      // Initial hydrate
+      initUserBadge();
+      setStatus(false);
+      updatePreview();
+    })();
+  </script>
+</body>
+</html>

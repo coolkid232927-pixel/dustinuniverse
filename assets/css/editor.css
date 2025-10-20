@@ -1,0 +1,4 @@
+.editor__left, .editor__right{min-height:200px}
+.preview h2{margin-top:0}
+.preview em{color:var(--muted)}
+.kbd{font: .9rem/1.2 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background:#12121c;border:1px solid #2a2a3a;border-radius:6px;padding:2px 6px}

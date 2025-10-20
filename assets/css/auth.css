@@ -1,0 +1,8 @@
+.auth--center{min-height:100vh; display:grid; place-items:center}
+.auth__card{background:var(--panel); border:1px solid #222433; padding:24px; border-radius:14px; width:min(420px, 92vw); display:grid; gap:12px}
+.auth__card h1{margin:0 0 8px}
+.auth__card label{display:grid; gap:6px}
+.auth__card input{padding:10px; border-radius:10px; border:1px solid #2a2a3a; background:#0f0f18; color:var(--text)}
+.auth__card button{padding:10px 14px; border-radius:12px; border:1px solid #2a2a3a; background:#1a1a27; color:var(--text); cursor:pointer}
+.error{color:#ff6b6b}
+.muted{color:var(--muted)}

@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Teams • Dustin Universe</title>
+  <link rel="icon" href="/images/logo.svg" />
+  <link rel="stylesheet" href="/assets/css/base.css" />
+  <link rel="stylesheet" href="/assets/css/admin.css" />
+  <style>
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px}
+    .card{background:var(--panel);border:1px solid #222433;padding:16px;border-radius:14px}
+    .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    label{display:grid;gap:6px;margin:.4rem 0}
+    input,textarea{padding:10px;border-radius:10px;border:1px solid #2a2a3a;background:#0f0f18;color:var(--text)}
+    .btn{padding:8px 12px;border-radius:10px;border:1px solid #2a2a3a;background:#1a1a27;color:var(--text);cursor:pointer}
+    .list{margin:0;padding-left:18px}
+    .krow{display:flex;gap:10px;align-items:center;justify-content:space-between;border:1px dashed #2a2a3a;padding:8px;border-radius:12px}
+    .muted{color:var(--muted)}
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="/pages/admin/dashboard.html">← Dashboard</a>
+    <nav class="site-nav">
+      <a href="/pages/admin/dashboard.html">Dashboard</a>
+      <a href="/pages/admin/blog.html">Editor</a>
+      <a href="/pages/admin/users.html">Users</a>
+      <a href="/pages/admin/teams.html" aria-current="page">Teams</a>
+      <a href="/pages/admin/settings.html">Settings</a>
+    </nav>
+  </header>
+
+  <main class="admin">
+    <h1>Teams</h1>
+    <div class="grid">
+      <div class="card">
+        <h2>Create / Update Team</h2>
+        <label>Team ID (unique, lowercase)
+          <input id="teamId" placeholder="news" />
+        </label>
+        <label>Name
+          <input id="teamName" placeholder="News" />
+        </label>
+        <label>Description
+          <textarea id="teamDesc" rows="3" placeholder="Editors who cover news"></textarea>
+        </label>
+        <div class="row">
+          <button id="saveTeam" class="btn">Save Team</button>
+          <button id="clearTeam" class="btn">Clear</button>
+        </div>
+        <p id="teamMsg" class="muted"></p>
+      </div>
+
+      <div class="card">
+        <h2>All Teams</h2>
+        <input id="teamSearch" placeholder="Search teams…" />
+        <div id="teamList" class="list" style="margin-top:8px">
+          <p class="muted">Loading teams…</p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer">© <span id="year"></span> Dustin Universe.</footer>
+
+  <script src="/assets/js/firebase.js" defer></script>
+  <script src="/assets/js/auth-guard.js" defer></script>
+  <script src="/assets/js/admin-authz.js" defer></script>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const wait = () => window.fb?.set ? Promise.resolve() : new Promise(r=>setTimeout(r,50)).then(wait);
+
+    function normId(v){return (v||'').toLowerCase().replace(/[^a-z0-9-]+/g,'-').replace(/(^-|-$)/g,'');}
+
+    async function refreshTeams(){
+      const list = $('teamList');
+      list.innerHTML = '<p class="muted">Loading teams…</p>';
+      const q = $('teamSearch').value.trim().toLowerCase();
+      const snap = await window.fb.getDocs(window.fb.c('teams'));
+      const arr=[]; snap.forEach(d => arr.push({id:d.id, ...d.data()}));
+      const filtered = q ? arr.filter(t => (t.id+t.name+(t.description||'')).toLowerCase().includes(q)) : arr;
+      if(!filtered.length){ list.innerHTML='<p class="muted">No teams found.</p>'; return; }
+      list.innerHTML='';
+      filtered.sort((a,b)=>a.id.localeCompare(b.id)).forEach(t=>{
+        const el = document.createElement('div');
+        el.className='krow';
+        el.innerHTML = `
+          <div>
+            <strong>${t.name||t.id}</strong> <span class="muted">(${t.id})</span><br/>
+            <span class="muted">${t.description||''}</span>
+          </div>
+          <div class="row">
+            <button class="btn" data-edit="${t.id}">Edit</button>
+            <button class="btn" data-delete="${t.id}">Delete</button>
+          </div>`;
+        list.appendChild(el);
+      });
+      // edit
+      list.querySelectorAll('[data-edit]').forEach(b=>b.addEventListener('click', async ()=>{
+        const id=b.getAttribute('data-edit'); const s=await window.fb.get('teams', id);
+        if(!s.exists()) return; const t=s.data();
+        $('teamId').value=id; $('teamName').value=t.name||''; $('teamDesc').value=t.description||'';
+        $('teamMsg').textContent = `Loaded team ${id} for editing.`;
+      }));
+      // delete
+      list.querySelectorAll('[data-delete]').forEach(b=>b.addEventListener('click', async ()=>{
+        const id=b.getAttribute('data-delete');
+        if(!confirm(`Delete team ${id}?`)) return;
+        await window.fb.set('teams', id, { __deleted:true }); // soft flag
+        // optional: actually delete via security rules/Cloud Function later
+        $('teamMsg').textContent = `Marked ${id} for deletion (soft).`;
+        refreshTeams();
+      }));
+    }
+
+    document.addEventListener('DOMContentLoaded', async ()=>{
+      await wait();
+      const me = await window.loadMe();
+      if(!window.can('manageTeams', me)) return window.requireRole('manageTeams');
+
+      $('saveTeam').addEventListener('click', async ()=>{
+        const id = normId($('teamId').value);
+        const name = $('teamName').value.trim() || id;
+        const description = $('teamDesc').value.trim();
+        if(!id) return $('teamMsg').textContent='Enter a team id.';
+        await window.fb.set('teams', id, { name, description, createdAt: Date.now() });
+        $('teamMsg').textContent = 'Saved.';
+        refreshTeams();
+      });
+      $('clearTeam').addEventListener('click',()=>{
+        ['teamId','teamName','teamDesc'].forEach(i=>$(i).value=''); $('teamMsg').textContent='';
+      });
+      $('teamSearch').addEventListener('input', ()=>{ clearTimeout(window.__t); window.__t=setTimeout(refreshTeams,200); });
+
+      refreshTeams();
+    });
+  </script>
+  <script src="/assets/js/main.js" defer></script>
+</body>
+</html>

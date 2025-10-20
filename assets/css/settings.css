@@ -1,0 +1,8 @@
+.tabs{display:flex; gap:8px; margin:12px 0}
+.tab{padding:8px 12px; border-radius:10px; border:1px solid #2a2a3a; background:#1a1a27; color:var(--text); cursor:pointer}
+.tab.active{outline:2px solid var(--brand)}
+.tabpanel{display:none; background:var(--panel); border:1px solid #222433; padding:16px; border-radius:14px}
+.tabpanel.active{display:block}
+label{display:grid; gap:6px; margin:8px 0}
+input[type="checkbox"]{width:18px; height:18px}
+.card{background:var(--panel); border:1px solid #222433; padding:16px; border-radius:14px}

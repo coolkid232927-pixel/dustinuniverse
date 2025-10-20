@@ -1,0 +1,9 @@
+.blog h1{margin:0 0 12px}
+.post-list{list-style:none; padding:0; margin:0; display:grid; gap:12px}
+.post-item{background:var(--panel); border:1px solid #222433; border-radius:14px}
+.post-link{display:block; padding:16px; color:var(--text); text-decoration:none}
+.post-link:hover{border-color:var(--brand)}
+.post-link h3{margin:0 0 6px}
+.post-link time{color:var(--muted); font-size:.9rem}
+.post-link p{margin:8px 0 0}
+.no-posts{text-align:center; color:var(--muted); padding:20px 0}
