@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>About • Dustin Universe</title>
+  <link rel="icon" href="/images/logo.svg" />
+  <link rel="stylesheet" href="/assets/css/base.css" />
+  <style>
+    .lead{font-size:1.15rem;color:var(--muted)}
+    .team{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-top:16px}
+    .card{background:var(--panel);border:1px solid #222433;padding:16px;border-radius:14px}
+    .avatar{width:64px;height:64px;border-radius:50%;background:#222;display:block}
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="/">← Home</a>
+    <nav class="site-nav">
+      <a href="/">Home</a>
+      <a href="/pages/blog/">Blog</a>
+      <a href="/pages/about/" aria-current="page">About</a>
+      <a href="/pages/admin/">Admin</a>
+    </nav>
+  </header>
+
+  <main>
+    <h1 id="brandTitle">About Dustin Universe</h1>
+    <p class="lead" id="brandTag">We share projects, updates, and fun experiments from our little corner of the universe.</p>
+
+    <section class="team">
+      <div class="card"><img class="avatar" src="/images/logo.svg" alt=""><h3>Dustin</h3><p>Owner, builder, and cosmic janitor.</p></div>
+      <div class="card"><div class="avatar"></div><h3>Editor</h3><p>Polishes words into stars.</p></div>
+      <div class="card"><div class="avatar"></div><h3>Moderator</h3><p>Keeps the asteroids out of the lanes.</p></div>
+    </section>
+  </main>
+
+  <footer class="site-footer">© <span id="year"></span> Dustin Universe.</footer>
+
+  <script src="/assets/js/firebase.js" type="module"></script>
+  <script>
+    // pull brand settings if available
+    (async ()=>{
+      try{
+        const s = await window.fb.get('settings','appearance');
+        if(s.exists()){
+          const { brandName } = s.data();
+          if (brandName) {
+            document.getElementById('brandTitle').textContent = `About ${brandName}`;
+          }
+        }
+        const home = await window.fb.get('settings','home');
+        if(home.exists()){
+          const { tagline } = home.data();
+          if(tagline) document.getElementById('brandTag').textContent = tagline;
+        }
+      }catch(_){}
+    })();
+  </script>
+  <script src="/assets/js/main.js" defer></script>
+</body>
+</html>

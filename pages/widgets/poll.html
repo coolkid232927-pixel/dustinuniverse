@@ -1,0 +1,36 @@
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Poll • Dustin Universe</title>
+<link rel="stylesheet" href="/assets/css/base.css"/>
+<style>.card{background:var(--panel);border:1px solid #222433;border-radius:14px;padding:16px;max-width:560px;margin:0 auto}</style>
+</head><body>
+<header class="site-header"><a class="brand" href="/">← Home</a></header>
+<main>
+  <div class="card">
+    <h1>Which feature should we build next?</h1>
+    <form id="poll">
+      <label><input type="radio" name="f" value="comments" required/> Comments</label><br/>
+      <label><input type="radio" name="f" value="themes"/> Theme presets</label><br/>
+      <label><input type="radio" name="f" value="pages"/> Static Pages CMS</label><br/>
+      <button class="btn" type="submit">Vote</button>
+    </form>
+    <p id="msg" class="muted"></p>
+  </div>
+</main>
+<footer class="site-footer">© <span id="year"></span> Dustin Universe.</footer>
+<script src="/assets/js/firebase.js" type="module"></script>
+<script type="module">
+  const $=id=>document.getElementById(id);
+  document.getElementById('poll').addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    const val = new FormData(e.target).get('f');
+    try{
+      await window.fb.add('pollVotes', { choice: val, ts: Date.now() });
+      $('msg').textContent = 'Thanks for voting!';
+    }catch(err){
+      $('msg').textContent = err.message || 'Failed';
+    }
+  });
+</script>
+<script src="/assets/js/main.js" defer></script>
+</body></html>

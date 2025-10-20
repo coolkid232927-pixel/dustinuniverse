@@ -1,0 +1,32 @@
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Tic-Tac-Toe • Dustin Universe</title>
+<link rel="stylesheet" href="/assets/css/base.css"/>
+<style>
+  .board{display:grid;grid-template-columns:repeat(3,100px);gap:6px;margin:20px auto}
+  .sq{width:100px;height:100px;display:grid;place-items:center;font-size:2.2rem;
+      background:#0f0f18;border:1px solid #222433;border-radius:12px;cursor:pointer}
+  .row{display:flex;gap:8px;justify-content:center}
+</style>
+</head><body>
+<header class="site-header">
+  <a class="brand" href="/">← Home</a>
+  <nav class="site-nav"><a href="/">Home</a><a href="/pages/games/tictactoe.html" aria-current="page">Game</a></nav>
+</header>
+<main>
+  <h1>Tic-Tac-Toe</h1>
+  <div class="row"><button id="reset" class="btn">Reset</button><div id="status" class="muted">X’s turn</div></div>
+  <div id="board" class="board"></div>
+</main>
+<footer class="site-footer">© <span id="year"></span> Dustin Universe.</footer>
+<script>
+  const $=id=>document.getElementById(id); let cur='X', cells=Array(9).fill('');
+  function draw(){ const b=$('board'); b.innerHTML=''; cells.forEach((v,i)=>{ const d=document.createElement('button'); d.className='sq'; d.textContent=v; d.addEventListener('click',()=>play(i)); b.appendChild(d); }); }
+  function win(c){ const w=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]]; return w.some(p=>p.every(i=>cells[i]===c)); }
+  function play(i){ if(cells[i])return; cells[i]=cur; if(win(cur)){$('status').textContent=cur+' wins!'; lock(); return;} if(!cells.includes('')){$('status').textContent='Draw'; return;} cur = (cur==='X'?'O':'X'); $('status').textContent=cur+'’s turn'; draw(); }
+  function lock(){ document.querySelectorAll('.sq').forEach(s=>s.disabled=true); }
+  $('reset').addEventListener('click', ()=>{ cells=Array(9).fill(''); cur='X'; $('status').textContent='X’s turn'; draw(); });
+  draw();
+</script>
+<script src="/assets/js/main.js" defer></script>
+</body></html>

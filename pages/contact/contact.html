@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Contact • Dustin Universe</title>
+  <link rel="icon" href="/images/logo.svg" />
+  <link rel="stylesheet" href="/assets/css/base.css" />
+  <style>
+    .card{background:var(--panel);border:1px solid #222433;padding:16px;border-radius:14px;max-width:720px;margin:0 auto}
+    form{display:grid;gap:10px}
+    label{display:grid;gap:6px}
+    input,textarea{padding:10px;border-radius:10px;border:1px solid #2a2a3a;background:#0f0f18;color:var(--text)}
+    .btn{padding:10px 14px;border-radius:12px;border:1px solid #2a2a3a;background:#1a1a27;color:var(--text);cursor:pointer}
+    .muted{color:var(--muted)}
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="/">← Home</a>
+    <nav class="site-nav">
+      <a href="/">Home</a>
+      <a href="/pages/blog/">Blog</a>
+      <a href="/pages/about/">About</a>
+      <a href="/pages/contact/" aria-current="page">Contact</a>
+    </nav>
+  </header>
+
+  <main>
+    <h1>Contact</h1>
+    <div class="card">
+      <form id="contactForm">
+        <label>Your name <input id="name" required placeholder="Jane Doe" /></label>
+        <label>Your email <input id="email" type="email" required placeholder="you@example.com" /></label>
+        <label>Message <textarea id="message" rows="6" required placeholder="How can we help?"></textarea></label>
+        <button class="btn" type="submit">Send</button>
+        <p id="msg" class="muted"></p>
+      </form>
+    </div>
+  </main>
+
+  <footer class="site-footer">© <span id="year"></span> Dustin Universe.</footer>
+
+  <script src="/assets/js/firebase.js" type="module"></script>
+  <script>
+    const $ = (id)=>document.getElementById(id);
+    document.getElementById('contactForm').addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const name = $('name').value.trim();
+      const email = $('email').value.trim();
+      const message = $('message').value.trim();
+      $('msg').textContent = 'Sending…';
+      try{
+        await window.fb.add('contactMessages', { name, email, message, ts: Date.now() });
+        $('msg').textContent = 'Thanks! We received your message.';
+        e.target.reset();
+      }catch(err){
+        $('msg').textContent = err.message || 'Failed to send.';
+      }
+    });
+  </script>
+  <script src="/assets/js/main.js" defer></script>
+</body>
+</html>

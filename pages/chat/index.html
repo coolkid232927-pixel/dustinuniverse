@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Live Chat • Dustin Universe</title>
+  <link rel="icon" href="/images/logo.svg" />
+  <link rel="stylesheet" href="/assets/css/base.css" />
+  <style>
+    .wrap{max-width:840px;margin:0 auto}
+    .card{background:var(--panel);border:1px solid #222433;border-radius:14px;padding:16px}
+    .row{display:flex;gap:8px;align-items:center}
+    label{display:grid;gap:6px}
+    input,textarea{padding:10px;border-radius:10px;border:1px solid #2a2a3a;background:#0f0f18;color:var(--text)}
+    .btn{padding:10px 14px;border-radius:12px;border:1px solid #2a2a3a;background:#1a1a27;color:var(--text);cursor:pointer}
+    .muted{color:var(--muted)}
+    .chat{display:grid;grid-template-rows:auto 1fr auto;gap:10px;height:min(70vh,600px)}
+    .messages{overflow:auto;background:#0f0f18;border:1px solid #222433;border-radius:12px;padding:10px}
+    .msg{margin:8px 0}
+    .msg.me .bubble{background:#1e2a47}
+    .msg.agent .bubble{background:#24331e}
+    .bubble{display:inline-block;padding:8px 10px;border-radius:12px}
+    .meta{font-size:.8rem;color:var(--muted)}
+    .online{display:inline-flex;align-items:center;gap:6px}
+    .dot{width:10px;height:10px;border-radius:999px;background:#555;display:inline-block}
+    .dot.on{background:#79d392}
+  </style>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="/">← Home</a>
+  <nav class="site-nav">
+    <a href="/">Home</a>
+    <a href="/pages/blog/">Blog</a>
+    <a href="/pages/chat/" aria-current="page">Live Chat</a>
+  </nav>
+</header>
+
+<main class="wrap">
+  <h1>Live Chat</h1>
+  <p class="muted">Chat with our team. No account required — just your email so we can reply.</p>
+
+  <div id="pre" class="card" style="margin-bottom:12px">
+    <form id="startForm" class="row" style="flex-wrap:wrap">
+      <label style="flex:1 1 220px">Your email
+        <input id="email" type="email" required placeholder="you@example.com"/>
+      </label>
+      <label style="flex:1 1 220px">Your name (optional)
+        <input id="name" placeholder="Jane"/>
+      </label>
+      <button class="btn" type="submit">Start chat</button>
+      <span class="online"><span class="dot" id="onlineDot"></span><span id="onlineText">Checking who’s online…</span></span>
+    </form>
+  </div>
+
+  <section id="chatBox" class="card chat" style="display:none">
+    <div class="row" style="justify-content:space-between">
+      <div class="muted">Chat ID: <code id="cid">—</code></div>
+      <button class="btn" id="endBtn">End chat</button>
+    </div>
+
+    <div id="messages" class="messages" aria-live="polite"></div>
+
+    <form id="sendForm" class="row">
+      <input id="text" placeholder="Type your message…" style="flex:1"/>
+      <button class="btn" type="submit">Send</button>
+    </form>
+    <p class="muted" id="hint"></p>
+  </section>
+</main>
+
+<footer class="site-footer">© <span id="year"></span> Dustin Universe.</footer>
+
+<script src="/assets/js/firebase.js" type="module"></script>
+<script type="module">
+  const $ = (id)=>document.getElementById(id);
+
+  // Show if any agents are online (presence/agents/* with online:true in last 2 min)
+  async function watchPresence(){
+    try{
+      const coll = window.fb.c('presence/agents');
+      window.fb.onSnapshot(coll, snap=>{
+        let online = false;
+        const cutoff = Date.now() - 2*60*1000;
+        snap.forEach(d=>{
+          const v=d.data();
+          if (v.online && (v.lastSeen||0) > cutoff) online = true;
+        });
+        $('onlineDot').classList.toggle('on', online);
+        $('onlineText').textContent = online ? 'Team is online' : 'We’ll reply by email';
+      });
+    }catch(_){}
+  }
+
+  async function anonSignIn(){
+    // ensure anonymous sign-in (no UI)
+    const { getAuth, signInAnonymously } = await import("https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js");
+    const auth = getAuth();
+    if (!auth.currentUser) await signInAnonymously(auth);
+    return auth.currentUser.uid;
+  }
+
+  let convoId = null, unsub = null, myUid=null;
+
+  function scrollBottom(){ const m=$('messages'); m.scrollTop = m.scrollHeight; }
+
+  function renderMessage(m){
+    const el = document.createElement('div');
+    el.className = 'msg ' + (m.sender==='customer'?'me':'agent');
+    el.innerHTML = `<div class="bubble">${(m.text||'').replace(/</g,'&lt;')}</div>
+                    <div class="meta">${new Date(m.ts||Date.now()).toLocaleTimeString()}</div>`;
+    return el;
+  }
+
+  async function startChat(email, name){
+    myUid = await anonSignIn();
+    const data = {
+      customerEmail: email,
+      customerName: name||'',
+      createdAt: Date.now(),
+      lastMessageAt: Date.now(),
+      status: 'open',
+      createdBy: myUid
+    };
+    // reuse existing open chat by same user if you like (simple approach: new each time)
+    const id = (Math.random().toString(36).slice(2,10)).toUpperCase();
+    await window.fb.set('chatConversations', id, data);
+    convoId = id;
+    $('cid').textContent = id;
+    $('pre').style.display='none';
+    $('chatBox').style.display='grid';
+    $('hint').textContent = 'You can close this tab; we’ll email if you’re offline.';
+    listenMessages();
+  }
+
+  function listenMessages(){
+    if (unsub) unsub();
+    const ref = window.fb.c(`chatConversations/${convoId}/messages`);
+    const q = window.fb.query(ref, window.fb.orderBy('ts','asc'), window.fb.limit(200));
+    unsub = window.fb.onSnapshot(q, snap=>{
+      const box = $('messages');
+      box.innerHTML='';
+      snap.forEach(doc=> box.appendChild(renderMessage(doc.data())) );
+      scrollBottom();
+    });
+  }
+
+  async function send(text){
+    if (!text.trim()) return;
+    const ref = window.fb.c(`chatConversations/${convoId}/messages`);
+    await window.fb.add(ref, { sender:'customer', text, ts: Date.now() });
+    await window.fb.set('chatConversations', convoId, { lastMessageAt: Date.now() }); // merge
+  }
+
+  // events
+  document.getElementById('startForm').addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    const email = $('email').value.trim();
+    if (!email) return;
+    startChat(email, $('name').value.trim());
+  });
+
+  document.getElementById('sendForm').addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    const t = $('text'); await send(t.value); t.value=''; t.focus();
+  });
+
+  document.getElementById('endBtn').addEventListener('click', async ()=>{
+    if (!convoId) return;
+    await window.fb.set('chatConversations', convoId, { status:'closed', lastMessageAt: Date.now() });
+    window.location.href = '/';
+  });
+
+  watchPresence();
+</script>
+<script src="/assets/js/main.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Live Chat Console • Dustin Universe</title>
+  <link rel="icon" href="/images/logo.svg" />
+  <link rel="stylesheet" href="/assets/css/base.css" />
+  <link rel="stylesheet" href="/assets/css/admin.css" />
+  <style>
+    .layout{display:grid;grid-template-columns:300px 1fr;gap:14px}
+    @media (max-width: 900px){ .layout{grid-template-columns:1fr} }
+    .card{background:var(--panel);border:1px solid #222433;border-radius:14px;padding:12px}
+    .list{margin:0;padding-left:0;list-style:none}
+    .item{padding:8px;border-radius:10px;border:1px solid #222433;cursor:pointer;margin-bottom:8px}
+    .item.active{border-color:var(--brand)}
+    .muted{color:var(--muted)}
+    .row{display:flex;gap:8px;align-items:center}
+    .messages{height:min(65vh,560px);overflow:auto;background:#0f0f18;border:1px solid #222433;border-radius:12px;padding:10px}
+    .msg{margin:8px 0}
+    .msg.agent .bubble{background:#24331e}
+    .msg.customer .bubble{background:#1e2a47}
+    .bubble{display:inline-block;padding:8px 10px;border-radius:12px}
+    .meta{font-size:.8rem;color:var(--muted)}
+    .btn{padding:8px 12px;border-radius:10px;border:1px solid #2a2a3a;background:#1a1a27;color:var(--text);cursor:pointer}
+  </style>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="/pages/admin/dashboard.html">← Dashboard</a>
+  <nav class="site-nav">
+    <a href="/pages/admin/dashboard.html">Dashboard</a>
+    <a href="/pages/admin/chat.html" aria-current="page">Live Chat</a>
+    <a href="/pages/admin/users.html">Users</a>
+    <a href="/pages/admin/settings.html">Settings</a>
+  </nav>
+</header>
+
+<main>
+  <h1>Live Chat Console</h1>
+  <div class="layout">
+    <aside class="card">
+      <div class="row" style="justify-content:space-between">
+        <strong>Conversations</strong>
+        <button id="toggleOnline" class="btn">Go Online</button>
+      </div>
+      <ul id="convos" class="list"><li class="muted">Loading…</li></ul>
+    </aside>
+
+    <section class="card">
+      <div class="row" style="justify-content:space-between">
+        <div id="cmeta" class="muted">No conversation selected</div>
+        <div class="row">
+          <button id="closeBtn" class="btn" disabled>Close</button>
+        </div>
+      </div>
+      <div id="messages" class="messages"></div>
+      <form id="sendForm" class="row" style="margin-top:8px">
+        <input id="text" placeholder="Type a reply…" style="flex:1"/>
+        <button class="btn" type="submit">Send</button>
+      </form>
+    </section>
+  </div>
+</main>
+
+<footer class="site-footer">© <span id="year"></span> Dustin Universe.</footer>
+
+<script src="/assets/js/firebase.js" type="module"></script>
+<script src="/assets/js/auth-guard.js" defer></script>
+<script src="/assets/js/admin-authz.js" defer></script>
+<script type="module">
+  const $ = (id)=>document.getElementById(id);
+
+  let me=null, online=false, selId=null, unsubList=null, unsubMsgs=null;
+
+  function renderItem(c){
+    const li = document.createElement('li');
+    li.className='item';
+    li.dataset.id = c.id;
+    li.innerHTML = `<div><strong>${c.customerEmail}</strong> <span class="muted">(${c.status||'open'})</span></div>
+                    <div class="muted">${new Date(c.lastMessageAt||c.createdAt||Date.now()).toLocaleString()}</div>`;
+    return li;
+  }
+
+  function renderMsg(m){
+    const el = document.createElement('div');
+    el.className = 'msg ' + (m.sender==='agent'?'agent':'customer');
+    el.innerHTML = `<div class="bubble">${(m.text||'').replace(/</g,'&lt;')}</div>
+                    <div class="meta">${new Date(m.ts||Date.now()).toLocaleTimeString()}</div>`;
+    return el;
+  }
+
+  function scrollBottom(){ const box=$('messages'); box.scrollTop=box.scrollHeight; }
+
+  async function setPresence(flag){
+    online = !!flag;
+    $('toggleOnline').textContent = online ? 'Go Offline' : 'Go Online';
+    try{
+      if (!me) me = await window.loadMe();
+      if (!me) return;
+      await window.fb.set('presence/agents', me.uid, {
+        online, lastSeen: Date.now(), role: me.role||'unknown', email: me.email||''
+      });
+    }catch(_){}
+  }
+
+  function watchConversations(){
+    if (unsubList) unsubList();
+    const ref = window.fb.c('chatConversations');
+    const q = window.fb.query(ref, window.fb.orderBy('lastMessageAt','desc'), window.fb.limit(50));
+    unsubList = window.fb.onSnapshot(q, snap=>{
+      const ul = $('convos'); ul.innerHTML = '';
+      if (snap.empty) { ul.innerHTML = '<li class="muted">No conversations.</li>'; return; }
+      snap.forEach(doc=>{
+        const c = { id: doc.id, ...doc.data() };
+        const li = renderItem(c);
+        if (c.id === selId) li.classList.add('active');
+        ul.appendChild(li);
+      });
+      ul.querySelectorAll('.item').forEach(li=> li.addEventListener('click', ()=> select(li.dataset.id)) );
+    });
+  }
+
+  function watchMessages(){
+    if (unsubMsgs) unsubMsgs();
+    const ref = window.fb.c(`chatConversations/${selId}/messages`);
+    const q = window.fb.query(ref, window.fb.orderBy('ts','asc'), window.fb.limit(500));
+    unsubMsgs = window.fb.onSnapshot(q, snap=>{
+      const box = $('messages'); box.innerHTML = '';
+      snap.forEach(doc=> box.appendChild(renderMsg(doc.data())) );
+      scrollBottom();
+    });
+  }
+
+  async function select(id){
+    selId = id;
+    $('closeBtn').disabled = false;
+    const snap = await window.fb.get('chatConversations', id);
+    const c = snap.data(); $('cmeta').textContent = `${c.customerEmail} (${c.status})`;
+    document.querySelectorAll('.item').forEach(n => n.classList.toggle('active', n.dataset.id===id));
+    watchMessages();
+  }
+
+  async function send(text){
+    if (!text.trim() || !selId) return;
+    const ref = window.fb.c(`chatConversations/${selId}/messages`);
+    await window.fb.add(ref, { sender:'agent', text, ts: Date.now(), agentUid: (me?.uid||null) });
+    await window.fb.set('chatConversations', selId, { lastMessageAt: Date.now() }); // merge
+  }
+
+  // init
+  (async ()=>{
+    me = await window.loadMe();
+    if (!window.can('moderate', me)) return window.requireRole('moderate');
+
+    document.getElementById('toggleOnline').addEventListener('click', ()=> setPresence(!online));
+    setPresence(true);
+
+    $('sendForm').addEventListener('submit', async (e)=>{
+      e.preventDefault(); const t=$('text'); await send(t.value); t.value=''; t.focus();
+    });
+
+    $('closeBtn').addEventListener('click', async ()=>{
+      if (!selId) return;
+      await window.fb.set('chatConversations', selId, { status:'closed', lastMessageAt: Date.now() });
+      $('cmeta').textContent = 'Conversation closed';
+    });
+
+    watchConversations();
+  })();
+</script>
+<script src="/assets/js/main.js" defer></script>
+</body>
+</html>
