@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Blog • Dustin Universe</title>
+  <meta name="description" content="Read the latest posts from Dustin Universe — tips, projects, and updates." />
+  <link rel="icon" href="/images/logo.svg" />
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="/assets/css/base.css" />
+  <link rel="stylesheet" href="/assets/css/blog.css" />
+
+  <!-- Inline styles just for this page’s layout tweaks -->
+  <style>
+    .blog-header {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    .search-bar {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
+      max-width: 480px;
+      margin: 0 auto 1rem;
+    }
+
+    .search-bar input {
+      flex: 1;
+      padding: 0.6rem 1rem;
+      border-radius: 12px;
+      border: 1px solid #2a2a3a;
+      background: #0f0f18;
+      color: var(--text);
+    }
+
+    .search-bar button {
+      padding: 0.6rem 1rem;
+      border-radius: 12px;
+      background: var(--brand);
+      color: #fff;
+      border: none;
+      cursor: pointer;
+    }
+
+    .tag-filter {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px;
+      margin: 1rem auto;
+      max-width: 640px;
+    }
+
+    .tag-filter button {
+      background: #1a1a27;
+      border: 1px solid #2a2a3a;
+      border-radius: 10px;
+      color: var(--text);
+      padding: 6px 12px;
+      cursor: pointer;
+    }
+
+    .tag-filter button.active {
+      background: var(--brand);
+      color: #fff;
+      border-color: var(--brand);
+    }
+
+    .post-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1.2rem;
+    }
+
+    .post-item {
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid #222433;
+      background: var(--panel);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+
+    .post-item:hover {
+      border-color: var(--brand);
+      transform: translateY(-2px);
+    }
+
+    .post-link {
+      display: block;
+      color: var(--text);
+      text-decoration: none;
+      padding: 1rem;
+    }
+
+    .post-link h3 {
+      margin: 0 0 0.4rem;
+    }
+
+    .post-link time {
+      display: block;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    .post-link p {
+      margin: 0.6rem 0 0;
+      line-height: 1.5;
+    }
+
+    .no-posts {
+      text-align: center;
+      color: var(--muted);
+      margin: 2rem 0;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Header -->
+  <header class="site-header">
+    <a class="brand" href="/">← Home</a>
+    <nav class="site-nav">
+      <a href="/">Home</a>
+      <a href="/pages/blog/" aria-current="page">Blog</a>
+      <a href="/pages/admin/">Admin</a>
+    </nav>
+  </header>
+
+  <!-- Main -->
+  <main class="blog">
+    <div class="blog-header">
+      <h1>Dustin Universe Blog</h1>
+      <p>Stories, updates, and tips from the Universe of Dustin.</p>
+
+      <!-- Search and filters -->
+      <div class="search-bar">
+        <input id="searchInput" type="search" placeholder="Search posts..." aria-label="Search posts" />
+        <button id="searchBtn" title="Search">🔍</button>
+      </div>
+
+      <div class="tag-filter" aria-label="Category filter">
+        <button data-tag="all" class="active">All</button>
+        <button data-tag="news">News</button>
+        <button data-tag="tutorial">Tutorials</button>
+        <button data-tag="update">Updates</button>
+        <button data-tag="fun">Fun</button>
+      </div>
+    </div>
+
+    <!-- Posts list -->
+    <ul id="postList" class="post-list" aria-live="polite">
+      <li class="no-posts" id="noPosts">Loading posts...</li>
+    </ul>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    © <span id="year"></span> Dustin Universe. All rights reserved.
+  </footer>
+
+  <!-- Scripts -->
+  <script src="/assets/js/firebase.js" defer></script>
+  <script src="/assets/js/blog.js" defer></script>
+  <script src="/assets/js/main.js" defer></script>
+
+  <!-- Inline enhancements -->
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const searchInput = document.getElementById("searchInput");
+      const searchBtn = document.getElementById("searchBtn");
+      const tagButtons = document.querySelectorAll(".tag-filter button");
+      const noPosts = document.getElementById("noPosts");
+
+      let posts = [];
+      let filtered = [];
+
+      // Load posts from Firestore (if available) or fallback to JSON
+      async function loadPosts() {
+        try {
+          if (window.fb && window.fb.getDocs) {
+            const snap = await window.fb.getDocs(window.fb.c("posts"));
+            snap.forEach((doc) => {
+              const data = doc.data();
+              if (data.published) posts.push({ id: doc.id, ...data });
+            });
+          } else {
+            const res = await fetch("/data/posts.json");
+            posts = await res.json();
+          }
+          renderPosts(posts);
+        } catch (err) {
+          noPosts.textContent = "Failed to load posts.";
+          console.error(err);
+        }
+      }
+
+      function renderPosts(arr) {
+        const ul = document.getElementById("postList");
+        ul.innerHTML = "";
+        if (!arr.length) {
+          ul.innerHTML = '<li class="no-posts">No posts found.</li>';
+          return;
+        }
+
+        arr
+          .sort((a, b) => new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt))
+          .forEach((p) => {
+            const li = document.createElement("li");
+            li.className = "post-item";
+            li.innerHTML = `
+              <a class="post-link" href="${p.url || "#"}">
+                <h3>${p.title || "Untitled Post"}</h3>
+                <time datetime="${p.date || ""}">
+                  ${new Date(p.date || p.createdAt || Date.now()).toLocaleDateString()}
+                </time>
+                <p>${p.excerpt || "No excerpt available."}</p>
+              </a>
+            `;
+            ul.appendChild(li);
+          });
+      }
+
+      function filterPosts(tag) {
+        tagButtons.forEach((btn) => btn.classList.remove("active"));
+        document.querySelector(`[data-tag="${tag}"]`).classList.add("active");
+        if (tag === "all") {
+          filtered = posts;
+        } else {
+          filtered = posts.filter((p) => (p.tags || []).includes(tag));
+        }
+        renderPosts(filtered);
+      }
+
+      // Search
+      function searchPosts() {
+        const term = searchInput.value.toLowerCase();
+        const base = filtered.length ? filtered : posts;
+        const result = base.filter(
+          (p) =>
+            p.title?.toLowerCase().includes(term) ||
+            p.excerpt?.toLowerCase().includes(term) ||
+            p.body?.toLowerCase().includes(term)
+        );
+        renderPosts(result);
+      }
+
+      searchBtn.addEventListener("click", searchPosts);
+      searchInput.addEventListener("keypress", (e) => e.key === "Enter" && searchPosts());
+      tagButtons.forEach((btn) => btn.addEventListener("click", () => filterPosts(btn.dataset.tag)));
+
+      loadPosts();
+    });
+  </script>
+</body>
+</html>

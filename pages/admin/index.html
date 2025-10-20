@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Login • Dustin Universe</title>
+  <meta name="description" content="Admin login for Dustin Universe." />
+  <link rel="icon" href="/images/logo.svg" />
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="/assets/css/base.css" />
+  <link rel="stylesheet" href="/assets/css/auth.css" />
+
+  <style>
+    /* Page-specific niceties (optional) */
+    .auth__logo {
+      display: flex; align-items: center; gap: .6rem; margin-bottom: .5rem;
+    }
+    .auth__logo img { width: 28px; height: 28px; }
+    .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .row a { color: var(--brand); text-decoration: none; }
+    .row a:hover { text-decoration: underline; }
+    .actions { display: flex; gap: 10px; align-items: center; justify-content: space-between; }
+    .spinner { width: 18px; height: 18px; border-radius: 50%; border: 2px solid #2a2a3a; border-top-color: var(--brand); animation: spin 0.9s linear infinite; display: none; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .pass-wrap { position: relative; }
+    .toggle-pass {
+      position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+      border: 0; background: transparent; color: var(--muted); cursor: pointer;
+    }
+    .oauth { display: grid; gap: 8px; margin-top: 8px; }
+    .oauth button { padding: 10px 14px; border-radius: 12px; border: 1px solid #2a2a3a; background: #11111b; color: var(--text); cursor: pointer; }
+    .muted-center { text-align:center; color: var(--muted); font-size: .9rem; }
+  </style>
+</head>
+
+<body>
+  <main class="auth auth--center">
+    <form id="loginForm" class="card auth__card" autocomplete="on" novalidate>
+      <div class="auth__logo">
+        <img src="/images/logo.svg" alt="" aria-hidden="true" />
+        <strong>Dustin Universe</strong>
+      </div>
+
+      <h1>Admin Login</h1>
+
+      <label>Email
+        <input type="email" id="email" name="email" required autocomplete="email" placeholder="you@example.com" />
+      </label>
+
+      <label>Password
+        <span class="pass-wrap">
+          <input type="password" id="password" name="password" required autocomplete="current-password" placeholder="••••••••" />
+          <button type="button" class="toggle-pass" id="togglePass" aria-label="Show password">👁</button>
+        </span>
+      </label>
+
+      <div class="row">
+        <label style="display:flex; align-items:center; gap:.5rem;">
+          <input type="checkbox" id="remember" /> Remember me
+        </label>
+        <a href="#" id="forgotLink" title="Coming soon">Forgot password?</a>
+      </div>
+
+      <div class="actions">
+        <button type="submit" id="loginBtn">Log in</button>
+        <div class="spinner" id="spinner" aria-hidden="true"></div>
+      </div>
+
+      <p id="loginError" class="error" role="alert" hidden></p>
+
+      <p class="muted">
+        Don’t have an account? Ask an admin for an invite key and use
+        <a href="/pages/admin/signup.html">Signup</a>.
+      </p>
+
+      <p class="muted-center"><a href="/">← Back to Home</a></p>
+
+      <div class="oauth" aria-hidden="true">
+        <!-- Optional: wire these up later if you enable providers -->
+        <!-- <button id="googleSignIn">Continue with Google</button> -->
+        <!-- <button id="githubSignIn">Continue with GitHub</button> -->
+      </div>
+    </form>
+  </main>
+
+  <!-- Scripts -->
+  <script src="/assets/js/firebase.js" defer></script>
+
+  <script>
+    // Helpers
+    function setBusy(busy) {
+      const btn = document.getElementById('loginBtn');
+      const sp = document.getElementById('spinner');
+      btn.disabled = !!busy;
+      sp.style.display = busy ? 'inline-block' : 'none';
+    }
+
+    function showInlineError(msg) {
+      const el = document.getElementById('loginError');
+      el.hidden = false;
+      el.textContent = msg || 'Something went wrong.';
+    }
+
+    // Initialize UI behavior
+    document.addEventListener('DOMContentLoaded', () => {
+      const emailEl = document.getElementById('email');
+      const passEl = document.getElementById('password');
+      const rememberEl = document.getElementById('remember');
+      const toggle = document.getElementById('togglePass');
+
+      // Load remembered email
+      try {
+        const savedEmail = localStorage.getItem('du_login_email');
+        if (savedEmail) {
+          emailEl.value = savedEmail;
+          rememberEl.checked = true;
+        }
+      } catch (_) {}
+
+      // Toggle password visibility
+      toggle.addEventListener('click', () => {
+        const isPassword = passEl.type === 'password';
+        passEl.type = isPassword ? 'text' : 'password';
+        toggle.textContent = isPassword ? '🙈' : '👁';
+        toggle.setAttribute('aria-label', isPassword ? 'Hide password' : 'Show password');
+      });
+
+      // Submit handler
+      document.getElementById('loginForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        setBusy(true);
+        document.getElementById('loginError').hidden = true;
+
+        const email = emailEl.value.trim();
+        const password = passEl.value;
+
+        if (!email || !password) {
+          setBusy(false);
+          return showInlineError('Please enter your email and password.');
+        }
+
+        try {
+          // Wait until Firebase bootstraps
+          const waitForFb = () =>
+            window.fb && window.fb.signIn
+              ? Promise.resolve()
+              : new Promise((r) => setTimeout(r, 50)).then(waitForFb);
+          await waitForFb();
+
+          await window.fb.signIn(email, password);
+
+          // Remember email if checked
+          try {
+            if (rememberEl.checked) localStorage.setItem('du_login_email', email);
+            else localStorage.removeItem('du_login_email');
+          } catch (_) {}
+
+          // Optional: record activity
+          try {
+            await window.fb.add('activity', {
+              type: 'login',
+              userEmail: email,
+              ts: Date.now(),
+            });
+          } catch (_) {}
+
+          // Go to dashboard
+          window.location.href = '/pages/admin/dashboard.html';
+        } catch (err) {
+          console.error(err);
+          showInlineError(err?.message || 'Login failed.');
+        } finally {
+          setBusy(false);
+        }
+      });
+
+      // Optional “forgot password” flow placeholder
+      document.getElementById('forgotLink').addEventListener('click', (e) => {
+        e.preventDefault();
+        alert('Password reset flow coming soon. Ask an admin for help meanwhile.');
+      });
+    });
+  </script>
+</body>
+</html>

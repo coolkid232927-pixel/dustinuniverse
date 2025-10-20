@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dustin Universe</title>
+  <meta name="description" content="Dustin Universe — random images, fun posts, and projects." />
+  <link rel="icon" href="/images/logo.svg" />
+  <!-- Shared + page styles -->
+  <link rel="stylesheet" href="/assets/css/base.css" />
+  <link rel="stylesheet" href="/assets/css/home.css" />
+  <!-- Preload first slide for faster LCP -->
+  <link rel="preload" as="image" href="/images/slide-1.jpg" imagesrcset="/images/slide-1.jpg 1x" />
+</head>
+
+<body>
+  <!-- Header -->
+  <header class="site-header">
+    <a class="brand" href="/">
+      <img src="/images/logo.svg" alt="Dustin Universe logo" width="28" height="28" />
+      Dustin Universe
+    </a>
+    <nav class="site-nav" aria-label="Primary">
+      <a href="/" aria-current="page">Home</a>
+      <a href="/pages/blog/">Blog</a>
+      <a href="/pages/admin/">Admin</a>
+    </nav>
+  </header>
+
+  <!-- Main -->
+  <main id="content">
+    <!-- Hero -->
+    <section class="hero">
+      <h1 class="hero__title">Welcome to Dustin Universe</h1>
+      <p id="heroTag" class="hero__tag">
+        Random images. Fun posts. A place to build cool stuff.
+      </p>
+      <div class="hero__actions">
+        <a class="card" href="/pages/blog/">
+          <h3>Read the Blog</h3>
+          <p>Tips, projects, and updates.</p>
+        </a>
+
+        </a>
+      </div>
+    </section>
+
+    <!-- Image Carousel -->
+    <section class="carousel" aria-label="Featured images">
+      <button class="carousel-btn prev" aria-label="Previous slide" title="Previous slide">◀</button>
+
+      <div class="carousel-track" role="region" aria-roledescription="carousel" aria-label="Dustin Universe Gallery">
+        <img src="/images/slide-1.jpg" alt="Slide 1: a cool featured image" class="slide" />
+        <img src="/images/slide-2.jpg" alt="Slide 2: another cool featured image" class="slide" loading="lazy" />
+        <img src="/images/slide-3.jpg" alt="Slide 3: yet another cool featured image" class="slide" loading="lazy" />
+      </div>
+
+      <button class="carousel-btn next" aria-label="Next slide" title="Next slide">▶</button>
+      <div class="carousel-dots" role="tablist" aria-label="Carousel pagination"></div>
+    </section>
+
+    <!-- Feature cards -->
+    <section class="cta-cards" aria-label="Quick links">
+      <a class="card" href="/pages/blog/">
+        <h3>Latest Posts</h3>
+        <p>See what’s new on the blog.</p>
+      </a>
+    
+      <a class="card" href="/pages/blog/">
+        <h3>Popular</h3>
+        <p>Hand-picked articles from Dustin Universe.</p>
+      </a>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    © <span id="year"></span> Dustin Universe. All rights reserved.
+  </footer>
+
+  <!-- Scripts -->
+  <script src="/assets/js/carousel.js" defer></script>
+  <script src="/assets/js/main.js" defer></script>
+
+  <!-- Small inline enhancement (optional; ok to remove if you prefer only external JS) -->
+  <script>
+    // Respect saved tagline from settings (if you've saved one in Firestore and mirror to localStorage later)
+    (function () {
+      try {
+        const saved = localStorage.getItem('du_tagline');
+        if (saved) document.getElementById('heroTag').textContent = saved;
+      } catch (_) {}
+    })();
+  </script>
+</body>
+</html>

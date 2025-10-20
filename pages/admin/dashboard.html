@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dashboard • Dustin Universe</title>
+  <meta name="description" content="Admin dashboard for Dustin Universe." />
+  <link rel="icon" href="/images/logo.svg" />
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="/assets/css/base.css" />
+  <link rel="stylesheet" href="/assets/css/dashboard.css" />
+
+  <style>
+    /* Page niceties */
+    .topbar {
+      display: flex; gap: 12px; align-items: center; justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .topbar .who { color: var(--muted); font-size: .95rem; }
+    .topbar .actions { display: flex; gap: 8px; align-items: center; }
+    .btn, .topbar button {
+      padding: 8px 12px; border-radius: 10px; border: 1px solid #2a2a3a; background: #1a1a27; color: var(--text);
+      cursor: pointer;
+    }
+    .btn-brand { border-color: var(--brand); }
+    .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+    .card h2 { margin-top: 0; }
+    .list { margin: 0; padding-left: 18px; }
+    .empty { color: var(--muted); }
+    .subtle { color: var(--muted); font-size: .9rem; }
+    .quick a { color: var(--text); text-decoration: none; }
+    .quick a:hover { text-decoration: underline; }
+    .badge {
+      display: inline-block; border: 1px solid #2a2a3a; border-radius: 999px; padding: 2px 8px; font-size: .75rem; color: var(--muted);
+      margin-left: 6px;
+    }
+    .filters { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+    .filters select, .filters input {
+      padding: 8px 10px; border-radius: 10px; border: 1px solid #2a2a3a; background: #0f0f18; color: var(--text);
+    }
+    .toolbar { display: flex; gap: 8px; align-items: center; }
+    .divider { height: 1px; background: #222433; margin: 16px 0; }
+  </style>
+</head>
+
+<body>
+  <header class="site-header">
+    <a class="brand" href="/">Dustin Universe</a>
+    <nav class="site-nav" aria-label="Admin">
+      <a href="/pages/admin/dashboard.html" aria-current="page">Dashboard</a>
+      <a href="/pages/admin/blog.html">Editor</a>
+      <a href="/pages/admin/users.html">Users</a>
+      <a href="/pages/admin/teams.html">Teams</a>
+      <a href="/pages/admin/settings.html">Settings</a>
+      <button id="signOutBtn" class="btn">Sign out</button>
+    </nav>
+  </header>
+
+  <main>
+    <div class="topbar">
+      <div class="who" id="whoami">Loading user…</div>
+      <div class="actions">
+        <a class="btn btn-brand" href="/pages/admin/blog.html">✍️ New Post</a>
+        <button id="refreshBtn" class="btn" title="Refresh widgets">↻ Refresh</button>
+      </div>
+    </div>
+
+    <section class="filters" aria-label="Dashboard filters">
+      <div class="toolbar">
+        <label for="teamScope" class="subtle">Team</label>
+        <select id="teamScope">
+          <option value="">All teams</option>
+        </select>
+      </div>
+
+      <div class="toolbar">
+        <label for="limitCount" class="subtle">Show</label>
+        <select id="limitCount">
+          <option value="5">5</option>
+          <option value="10" selected>10</option>
+          <option value="20">20</option>
+        </select>
+      </div>
+
+      <div class="toolbar">
+        <label for="search" class="subtle">Search</label>
+        <input id="search" type="search" placeholder="Title or author…" />
+      </div>
+    </section>
+
+    <section class="grid-3">
+      <div class="card" id="recentBlogs">
+        <h2>Recent Blogs <span id="postCount" class="badge">0</span></h2>
+        <ul class="list" id="recentBlogList">
+          <li class="empty">Loading posts…</li>
+        </ul>
+        <div class="divider"></div>
+        <div class="subtle">Only posts you have permission to see (role/team) are shown here.</div>
+      </div>
+
+      <div class="card" id="recentActivity">
+        <h2>Recent Activity</h2>
+        <ul class="list" id="activityList">
+          <li class="empty">Loading activity…</li>
+        </ul>
+        <div class="divider"></div>
+        <div class="subtle">Includes logins, post creation, and publishing.</div>
+      </div>
+
+      <div class="card quick" id="quickLinks">
+        <h2>Quick Links</h2>
+        <ul class="list">
+          <li><a href="/pages/blog/">View Public Blog</a></li>
+          <li><a href="/pages/admin/users.html">Manage Users</a></li>
+          <li><a href="/pages/admin/settings.html">Customize Home</a></li>
+          <li><a href="/pages/admin/teams.html">Manage Teams</a></li>
+        </ul>
+        <div class="divider"></div>
+        <h3>Tips</h3>
+        <ul class="list">
+          <li>Use the <em>Team</em> filter to scope content.</li>
+          <li>Open the <strong>Editor</strong> to draft, then <strong>Publish</strong> with correct team.</li>
+          <li>Set brand name and accent in <strong>Settings → Appearance</strong>.</li>
+        </ul>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">© <span id="year"></span> Dustin Universe.</footer>
+
+  <!-- Scripts -->
+  <script src="/assets/js/firebase.js" defer></script>
+  <script src="/assets/js/auth-guard.js" defer></script>
+  <script src="/assets/js/admin-authz.js" defer></script>
+  <script src="/assets/js/admin-dashboard.js" defer></script>
+  <script>
+    // Lightweight UI glue for this page
+    document.addEventListener('DOMContentLoaded', () => {
+      const who = document.getElementById('whoami');
+      const teamScope = document.getElementById('teamScope');
+      const limitCount = document.getElementById('limitCount');
+      const search = document.getElementById('search');
+      const refreshBtn = document.getElementById('refreshBtn');
+
+      // Show current user & teams
+      (async function showUser() {
+        const wait = () => window.loadMe ? Promise.resolve() : new Promise(r => setTimeout(r, 50)).then(wait);
+        await wait();
+        const me = await window.loadMe();
+        if (!me) return;
+        who.textContent = `${me.displayName || me.email || 'Unknown user'} • ${me.role || 'viewer'}${(me.teams?.length ? ' • ' + me.teams.join(', ') : '')}`;
+        // populate team dropdown
+        const myTeams = new Set(me.teams || []);
+        try {
+          const snap = await window.fb.getDocs(window.fb.c('teams'));
+          snap.forEach(d => myTeams.add(d.id));
+        } catch (_) {}
+        [...myTeams].sort().forEach(t => {
+          const opt = document.createElement('option');
+          opt.value = t; opt.textContent = t;
+          teamScope.appendChild(opt);
+        });
+      })();
+
+      // Widget refresh trigger (admin-dashboard.js reads these values)
+      function notifyRefresh() {
+        const scope = teamScope.value;
+        const limit = parseInt(limitCount.value, 10) || 10;
+        const term = search.value.trim().toLowerCase();
+        // Expose current filters so admin-dashboard.js can read them
+        window.__dashFilters = { scope, limit, term };
+        // Trigger a custom event to refresh
+        document.dispatchEvent(new CustomEvent('du:refresh-widgets'));
+      }
+
+      teamScope.addEventListener('change', notifyRefresh);
+      limitCount.addEventListener('change', notifyRefresh);
+      search.addEventListener('input', () => {
+        // debounce-ish
+        clearTimeout(window.__searchTimer);
+        window.__searchTimer = setTimeout(notifyRefresh, 250);
+      });
+      refreshBtn.addEventListener('click', notifyRefresh);
+
+      // Initial refresh once Firebase is ready
+      const waitForFB = () => window.fb?.getDocs ? Promise.resolve() : new Promise(r => setTimeout(r, 50)).then(waitForFB);
+      waitForFB().then(() => notifyRefresh());
+
+      // Sign out
+      document.getElementById('signOutBtn').addEventListener('click', () => {
+        window.fb.signOut().then(() => location.href = '/pages/admin/index.html');
+      });
+    });
+  </script>
+</body>
+</html>

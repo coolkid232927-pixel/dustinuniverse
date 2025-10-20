@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Signup • Dustin Universe</title>
+  <meta name="description" content="Create a Dustin Universe admin account using an invite key." />
+  <link rel="icon" href="/images/logo.svg" />
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="/assets/css/base.css" />
+  <link rel="stylesheet" href="/assets/css/auth.css" />
+
+  <style>
+    .key-info {
+      background: var(--panel);
+      border-radius: 12px;
+      padding: 12px;
+      font-size: 0.9rem;
+      color: var(--muted);
+      text-align: center;
+      border: 1px solid #222433;
+      margin-bottom: 10px;
+    }
+    .pass-wrap { position: relative; }
+    .toggle-pass {
+      position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+      border: 0; background: transparent; color: var(--muted); cursor: pointer;
+    }
+    .muted-center { text-align:center; color: var(--muted); font-size: .9rem; }
+  </style>
+</head>
+
+<body>
+  <main class="auth auth--center">
+    <form id="signupForm" class="card auth__card" novalidate>
+      <div class="auth__logo" style="display:flex;align-items:center;gap:.6rem;">
+        <img src="/images/logo.svg" alt="" width="28" height="28" />
+        <strong>Dustin Universe</strong>
+      </div>
+
+      <h1>Create Account</h1>
+      <p class="muted">Use the invite key your admin gave you.</p>
+
+      <div class="key-info" id="keyDisplay" hidden></div>
+
+      <label>Invite Key
+        <input type="text" id="inviteKey" placeholder="XXXX-XXXX" required />
+      </label>
+
+      <label>Email
+        <input type="email" id="email" placeholder="you@example.com" required autocomplete="email" />
+      </label>
+
+      <label>Password
+        <span class="pass-wrap">
+          <input type="password" id="password" minlength="8" required placeholder="Minimum 8 characters" autocomplete="new-password" />
+          <button type="button" id="togglePass" class="toggle-pass">👁</button>
+        </span>
+      </label>
+
+      <button type="submit" id="signupBtn">Sign Up</button>
+      <p id="signupError" class="error" role="alert" hidden></p>
+
+      <p class="muted-center"><a href="/pages/admin/index.html">← Back to Login</a></p>
+    </form>
+  </main>
+
+  <!-- Scripts -->
+  <script src="/assets/js/firebase.js" defer></script>
+
+  <script>
+    // Wait for firebase to be ready
+    async function waitForFirebase() {
+      if (window.fb && window.fb.get) return;
+      await new Promise(r => setTimeout(r, 50));
+      return waitForFirebase();
+    }
+
+    document.addEventListener("DOMContentLoaded", async () => {
+      await waitForFirebase();
+      const form = document.getElementById("signupForm");
+      const inviteKeyInput = document.getElementById("inviteKey");
+      const keyDisplay = document.getElementById("keyDisplay");
+      const passInput = document.getElementById("password");
+      const togglePass = document.getElementById("togglePass");
+      const errorBox = document.getElementById("signupError");
+
+      // Toggle password visibility
+      togglePass.addEventListener("click", () => {
+        const isPass = passInput.type === "password";
+        passInput.type = isPass ? "text" : "password";
+        togglePass.textContent = isPass ? "🙈" : "👁";
+      });
+
+      // If invite key passed via URL (?key=XXXX)
+      const params = new URLSearchParams(window.location.search);
+      const urlKey = params.get("key");
+      if (urlKey) {
+        inviteKeyInput.value = urlKey.toUpperCase();
+        keyDisplay.hidden = false;
+        keyDisplay.textContent = `Invite key prefilled: ${urlKey}`;
+      }
+
+      // Submit handler
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        errorBox.hidden = true;
+        const key = inviteKeyInput.value.trim().toUpperCase();
+        const email = document.getElementById("email").value.trim();
+        const password = passInput.value;
+
+        if (!key || !email || !password) {
+          errorBox.textContent = "All fields are required.";
+          errorBox.hidden = false;
+          return;
+        }
+
+        try {
+          // Validate key in Firestore
+          const keySnap = await window.fb.get("inviteKeys", key);
+          if (!keySnap.exists()) throw new Error("Invalid invite key.");
+          const keyData = keySnap.data();
+          if (keyData.used) throw new Error("This invite key has already been used.");
+
+          // Create user
+          const cred = await window.fb.createUser(email, password);
+          const uid = cred.user.uid;
+
+          // Assign role/teams from key
+          const role = keyData.role || "viewer";
+          const teams = keyData.teams || [];
+
+          await window.fb.set("users", uid, {
+            email,
+            role,
+            teams,
+            createdAt: Date.now(),
+            invitedBy: keyData.createdBy || "unknown",
+          });
+
+          // Mark key as used
+          await window.fb.set("inviteKeys", key, {
+            ...keyData,
+            used: true,
+            usedAt: Date.now(),
+            usedBy: email,
+          });
+
+          // Log activity
+          try {
+            await window.fb.add("activity", {
+              type: "signup",
+              userEmail: email,
+              ts: Date.now(),
+            });
+          } catch (_) {}
+
+          // Redirect
+          window.location.href = "/pages/admin/dashboard.html";
+        } catch (err) {
+          console.error(err);
+          errorBox.textContent = err.message || "Signup failed.";
+          errorBox.hidden = false;
+        }
+      });
+    });
+  </script>
+</body>
+</html>

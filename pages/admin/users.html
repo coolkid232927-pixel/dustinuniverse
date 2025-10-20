@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Users • Dustin Universe</title>
+  <meta name="description" content="Manage users, roles, teams, and invite keys." />
+  <link rel="icon" href="/images/logo.svg" />
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="/assets/css/base.css" />
+  <link rel="stylesheet" href="/assets/css/admin.css" />
+  <style>
+    .topbar{display:flex;gap:12px;align-items:center;justify-content:space-between;margin-bottom:16px}
+    .btn{padding:8px 12px;border-radius:10px;border:1px solid #2a2a3a;background:#1a1a27;color:var(--text);cursor:pointer}
+    .btn.brand{border-color:var(--brand)}
+    .btn.warn{border-color:#644; color:#f7c6c6}
+    .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px}
+    .card{background:var(--panel);border:1px solid #222433;padding:16px;border-radius:14px}
+    label{display:grid;gap:6px;margin:.4rem 0}
+    input,select,textarea{padding:10px;border-radius:10px;border:1px solid #2a2a3a;background:#0f0f18;color:var(--text)}
+    .muted{color:var(--muted)}
+    .list{margin:0;padding-left:18px}
+    .table{width:100%;border-collapse:collapse}
+    .table th,.table td{padding:8px;border-bottom:1px solid #222433;text-align:left;vertical-align:middle}
+    .chip{display:inline-block;padding:2px 8px;border:1px solid #2a2a3a;border-radius:999px;font-size:.75rem;color:var(--muted);margin-right:6px}
+    .krow{display:flex;gap:10px;align-items:center;justify-content:space-between;border:1px dashed #2a2a3a;padding:8px;border-radius:12px}
+    .krow .right{display:flex;gap:6px;align-items:center}
+    .copy{cursor:pointer}
+    .searchbar{display:flex;gap:8px;align-items:center}
+    .pill{padding:4px 10px;border-radius:999px;border:1px solid #2a2a3a;background:#12121c;color:var(--text)}
+    .danger{color:#ff8f8f}
+    .success{color:#9fe29f}
+  </style>
+</head>
+
+<body>
+  <header class="site-header">
+    <a class="brand" href="/pages/admin/dashboard.html">← Dashboard</a>
+    <nav class="site-nav" aria-label="Admin">
+      <a href="/pages/admin/dashboard.html">Dashboard</a>
+      <a href="/pages/admin/blog.html">Editor</a>
+      <a href="/pages/admin/users.html" aria-current="page">Users</a>
+      <a href="/pages/admin/teams.html">Teams</a>
+      <a href="/pages/admin/settings.html">Settings</a>
+    </nav>
+  </header>
+
+  <main class="admin">
+    <div class="topbar">
+      <h1>Users & Invites</h1>
+      <div class="row">
+        <span id="whoami" class="muted">Loading…</span>
+        <button id="refreshBtn" class="btn">↻ Refresh</button>
+      </div>
+    </div>
+
+    <section class="grid">
+      <!-- Generate Invite Key -->
+      <div class="card">
+        <h2>Create Invite</h2>
+        <p class="muted">Generate a signup key that auto-assigns role and teams.</p>
+        <label>Role
+          <select id="roleSelect">
+            <option value="owner">owner</option>
+            <option value="admin" selected>admin</option>
+            <option value="moderator">moderator</option>
+            <option value="editor_in_chief">editor_in_chief</option>
+            <option value="editor">editor</option>
+            <option value="publisher">publisher</option>
+            <option value="author">author</option>
+            <option value="viewer">viewer</option>
+          </select>
+        </label>
+
+        <label>Teams (comma separated)
+          <input id="teamsInput" placeholder="news, tech" />
+        </label>
+
+        <div class="row">
+          <label style="flex:1">Expires in (days)
+            <input id="expiresDays" type="number" min="0" value="7" />
+          </label>
+          <label style="flex:2">Note (optional)
+            <input id="keyNote" placeholder="why this invite is created" />
+          </label>
+        </div>
+
+        <div class="row">
+          <button id="genKey" class="btn brand">Generate Key</button>
+          <button id="clearForm" class="btn">Clear</button>
+        </div>
+
+        <div id="keyOut" class="muted" style="margin-top:10px"></div>
+      </div>
+
+      <!-- Active Keys -->
+      <div class="card">
+        <h2>Active Invite Keys</h2>
+        <div class="row searchbar" style="margin-bottom:8px">
+          <input id="keySearch" placeholder="Search by key or creator…" />
+          <select id="keyRoleFilter">
+            <option value="">All roles</option>
+            <option>owner</option><option>admin</option><option>moderator</option>
+            <option>editor_in_chief</option><option>editor</option><option>publisher</option>
+            <option>author</option><option>viewer</option>
+          </select>
+        </div>
+        <div id="keysList" class="list" aria-live="polite">
+          <p class="muted">Loading keys…</p>
+        </div>
+      </div>
+
+      <!-- Users -->
+      <div class="card" style="grid-column:1/-1">
+        <h2>All Users</h2>
+        <div class="row searchbar" style="margin-bottom:8px">
+          <input id="userSearch" placeholder="Search by email or display name…" />
+          <select id="userRoleFilter">
+            <option value="">All roles</option>
+            <option>owner</option><option>admin</option><option>moderator</option>
+            <option>editor_in_chief</option><option>editor</option><option>publisher</option>
+            <option>author</option><option>viewer</option>
+          </select>
+          <input id="userTeamFilter" class="pill" placeholder="team filter (optional)" />
+          <button id="reloadUsers" class="btn">Reload</button>
+        </div>
+
+        <div style="overflow:auto">
+          <table class="table" id="usersTable" aria-live="polite">
+            <thead>
+              <tr>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Teams</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="usersTbody">
+              <tr><td colspan="4" class="muted">Loading users…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">© <span id="year"></span> Dustin Universe.</footer>
+
+  <!-- Scripts -->
+  <script src="/assets/js/firebase.js" defer></script>
+  <script src="/assets/js/auth-guard.js" defer></script>
+  <script src="/assets/js/admin-authz.js" defer></script>
+  <script>
+    // Small helpers
+    const $ = (id) => document.getElementById(id);
+    const wait = () => window.fb?.set ? Promise.resolve() : new Promise(r=>setTimeout(r,50)).then(wait);
+
+    function slugTeams(v) {
+      return (v || '')
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean)
+        .map(s => s.toLowerCase());
+    }
+
+    function keyString() {
+      return Math.random().toString(36).slice(2,6).toUpperCase()
+           + '-' +
+             Math.random().toString(36).slice(2,6).toUpperCase();
+    }
+
+    async function showUserHeader() {
+      const me = await window.loadMe();
+      if (!me) return;
+      $('whoami').textContent = `${me.displayName || me.email} • ${me.role}${me.teams?.length ? ' • ' + me.teams.join(', ') : ''}`;
+      if (!window.can('manageUsers', me)) {
+        alert('You do not have permission to manage users.');
+        location.href = '/pages/admin/dashboard.html';
+      }
+    }
+
+    // -------- Invite Keys --------
+    async function generateKey() {
+      const role = $('roleSelect').value;
+      const teams = slugTeams($('teamsInput').value);
+      const days = parseInt($('expiresDays').value || '0', 10);
+      const note = $('keyNote').value.trim();
+      const key = keyString();
+      const createdBy = window.fb.auth.currentUser?.email || 'unknown';
+      const createdAt = Date.now();
+      const expiresAt = days > 0 ? (createdAt + days*24*60*60*1000) : null;
+
+      await window.fb.set('inviteKeys', key, {
+        role, teams, createdBy, createdAt, expiresAt, used:false, note
+      });
+
+      const link = `${location.origin}/pages/admin/signup.html?key=${key}`;
+      $('keyOut').innerHTML = `
+        <div class="krow">
+          <div>
+            <div><strong>Key:</strong> <code>${key}</code></div>
+            <div class="muted">Role: ${role} • Teams: ${teams.join(', ')||'—'} ${expiresAt ? `• Expires: ${new Date(expiresAt).toLocaleString()}` : ''}</div>
+            ${note ? `<div class="muted">Note: ${note}</div>` : ''}
+          </div>
+          <div class="right">
+            <button class="btn copy" data-copy="${key}">Copy Key</button>
+            <button class="btn copy" data-copy="${link}">Copy Link</button>
+          </div>
+        </div>`;
+      attachCopyHandlers($('keyOut'));
+      loadActiveKeys();
+    }
+
+    function attachCopyHandlers(root=document) {
+      root.querySelectorAll('.copy').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const text = btn.getAttribute('data-copy');
+          try { await navigator.clipboard.writeText(text); btn.textContent = 'Copied!'; setTimeout(()=>btn.textContent='Copy', 1200); } catch(_) {}
+        });
+      });
+    }
+
+    async function loadActiveKeys() {
+      const list = $('keysList');
+      list.innerHTML = '<p class="muted">Loading keys…</p>';
+      const roleFilter = $('keyRoleFilter').value;
+      const search = $('keySearch').value.trim().toLowerCase();
+
+      const snap = await window.fb.getDocs(window.fb.c('inviteKeys'));
+      const keys = [];
+      snap.forEach(d => {
+        const k = { id: d.id, ...d.data() };
+        if (k.used) return;
+        if (roleFilter && k.role !== roleFilter) return;
+        const hay = (k.id + ' ' + (k.createdBy || '')).toLowerCase();
+        if (search && !hay.includes(search)) return;
+        keys.push(k);
+      });
+
+      if (!keys.length) {
+        list.innerHTML = '<p class="muted">No active invite keys.</p>';
+        return;
+      }
+
+      list.innerHTML = '';
+      keys
+        .sort((a,b) => (b.createdAt||0)-(a.createdAt||0))
+        .forEach(k => {
+          const link = `${location.origin}/pages/admin/signup.html?key=${k.id}`;
+          const exp = k.expiresAt ? `• Expires: ${new Date(k.expiresAt).toLocaleString()}` : '';
+          const el = document.createElement('div');
+          el.className = 'krow';
+          el.innerHTML = `
+            <div>
+              <div><strong>${k.id}</strong> <span class="chip">${k.role}</span> ${(k.teams||[]).map(t=>`<span class="chip">${t}</span>`).join('')}</div>
+              <div class="muted">By ${k.createdBy||'unknown'} • ${new Date(k.createdAt).toLocaleString()} ${exp}</div>
+              ${k.note ? `<div class="muted">${k.note}</div>` : ''}
+            </div>
+            <div class="right">
+              <button class="btn copy" data-copy="${k.id}">Copy Key</button>
+              <button class="btn copy" data-copy="${link}">Copy Link</button>
+              <button class="btn warn" data-revoke="${k.id}">Revoke</button>
+            </div>`;
+          list.appendChild(el);
+        });
+
+      attachCopyHandlers(list);
+      // revoke
+      list.querySelectorAll('[data-revoke]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const id = btn.getAttribute('data-revoke');
+          if (!confirm(`Revoke invite ${id}?`)) return;
+          const snap = await window.fb.get('inviteKeys', id);
+          if (snap.exists()) {
+            const data = snap.data();
+            await window.fb.set('inviteKeys', id, { ...data, used:true, usedAt: Date.now(), usedBy:'revoked' });
+          }
+          loadActiveKeys();
+        });
+      });
+    }
+
+    // -------- Users --------
+    async function loadUsers() {
+      const tbody = $('usersTbody');
+      tbody.innerHTML = '<tr><td colspan="4" class="muted">Loading users…</td></tr>';
+
+      const search = $('userSearch').value.trim().toLowerCase();
+      const roleFilter = $('userRoleFilter').value;
+      const teamFilter = $('userTeamFilter').value.trim().toLowerCase();
+
+      const snap = await window.fb.getDocs(window.fb.c('users'));
+      const rows = [];
+      snap.forEach(d => {
+        const u = { id: d.id, ...d.data() };
+        if (roleFilter && (u.role !== roleFilter)) return;
+        if (search && !(u.email?.toLowerCase().includes(search) || u.displayName?.toLowerCase().includes(search))) return;
+        if (teamFilter) {
+          const set = (u.teams||[]).map(t=>t.toLowerCase());
+          if (!set.includes(teamFilter)) return;
+        }
+        rows.push(u);
+      });
+
+      rows.sort((a,b) => (a.email||'').localeCompare(b.email||''));
+      if (!rows.length) {
+        tbody.innerHTML = '<tr><td colspan="4" class="muted">No users found.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = '';
+      rows.forEach(u => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>
+            <div>${u.displayName ? `<strong>${u.displayName}</strong><br/>` : ''}${u.email||'unknown'}</div>
+          </td>
+          <td>
+            <select class="roleSel">
+              ${['owner','admin','moderator','editor_in_chief','editor','publisher','author','viewer'].map(r => `<option ${u.role===r?'selected':''}>${r}</option>`).join('')}
+            </select>
+          </td>
+          <td>
+            <input class="teamsInp" placeholder="comma teams" value="${(u.teams||[]).join(', ')}" />
+          </td>
+          <td class="row">
+            <button class="btn saveBtn">Save</button>
+            <button class="btn warn resetBtn" title="Reset password (send email)" disabled>Reset PW</button>
+          </td>`;
+        tbody.appendChild(tr);
+
+        const roleSel = tr.querySelector('.roleSel');
+        const teamsInp = tr.querySelector('.teamsInp');
+        const saveBtn = tr.querySelector('.saveBtn');
+
+        saveBtn.addEventListener('click', async () => {
+          const me = await window.loadMe();
+          if (!window.can('manageUsers', me)) return alert('Not allowed');
+          const role = roleSel.value;
+          const teams = slugTeams(teamsInp.value);
+          await window.fb.set('users', u.id, { role, teams }, { merge:true });
+          saveBtn.textContent = 'Saved'; setTimeout(()=> saveBtn.textContent='Save', 1200);
+        });
+      });
+    }
+
+    // -------- init --------
+    document.addEventListener('DOMContentLoaded', async () => {
+      await wait();
+      await showUserHeader();
+
+      // Buttons
+      $('genKey').addEventListener('click', async () => {
+        try { await generateKey(); } catch (e) { alert(e.message || 'Failed to create key'); }
+      });
+      $('clearForm').addEventListener('click', () => {
+        $('roleSelect').value = 'admin';
+        $('teamsInput').value = '';
+        $('expiresDays').value = '7';
+        $('keyNote').value = '';
+        $('keyOut').innerHTML = '';
+      });
+      $('refreshBtn').addEventListener('click', () => { loadActiveKeys(); loadUsers(); });
+      $('keySearch').addEventListener('input', () => loadActiveKeys());
+      $('keyRoleFilter').addEventListener('change', () => loadActiveKeys());
+      $('userSearch').addEventListener('input', () => { clearTimeout(window.__us); window.__us = setTimeout(loadUsers, 250); });
+      $('userRoleFilter').addEventListener('change', () => loadUsers());
+      $('userTeamFilter').addEventListener('input', () => { clearTimeout(window.__utf); window.__utf = setTimeout(loadUsers, 250); });
+      $('reloadUsers').addEventListener('click', () => loadUsers());
+
+      // Data
+      loadActiveKeys();
+      loadUsers();
+    });
+  </script>
+  <script src="/assets/js/main.js" defer></script>
+</body>
+</html>
