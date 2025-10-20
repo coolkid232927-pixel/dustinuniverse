@@ -34,11 +34,21 @@ window.requireRole = (action, teamScope) => {
   }
 };
 
-// load current user doc
-window.loadMe = async function(){
-  const wait = () => window.fb?.get ? Promise.resolve() : new Promise(r=>setTimeout(r,50)).then(wait);
-  await wait();
-  const uid = window.fb.auth.currentUser?.uid; if (!uid) return null;
+// load current user doc (removed)
+// Convenience hook: load current user doc (auth-ready)
+async function authReady() {
+  const waitFb = () => window.fb?.onAuth ? Promise.resolve() : new Promise(r=>setTimeout(r,50)).then(waitFb);
+  await waitFb();
+  // Wrap onAuthStateChanged into a one-shot promise
+  return new Promise(resolve => {
+    const unsub = window.fb.onAuth(user => { unsub(); resolve(user || null); });
+  });
+}
+
+window.loadMe = async function loadMe() {
+  await authReady(); // wait for Firebase Auth to hydrate
+  const uid = window.fb.auth.currentUser?.uid;
+  if (!uid) { window.__currentUser = null; return null; }
   const snap = await window.fb.get('users', uid);
   const me = snap.exists() ? { uid, ...snap.data() } : null;
   window.__currentUser = me;
