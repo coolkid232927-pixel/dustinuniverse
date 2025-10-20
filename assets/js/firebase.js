@@ -1,47 +1,57 @@
-// Replace with your Firebase config
+// /assets/js/firebase.js  (type="module")
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
+import {
+  getAuth,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  signOut as fbSignOut,
+  updatePassword as fbUpdatePassword,
+  createUserWithEmailAndPassword,
+} from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
+import {
+  getFirestore,
+  collection, doc, setDoc, getDoc, addDoc, getDocs, query, where,
+} from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
+// (Optional) Analytics — safe to keep imported only on pages where you want it
+// import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-analytics.js";
+
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_AUTH_DOMAIN",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_STORAGE_BUCKET",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyBPiVMybOjwYZmcpu0DJdYcZp8Exmvia2k",
+  authDomain: "dustins-universe.firebaseapp.com",
+  projectId: "dustins-universe",
+  storageBucket: "dustins-universe.firebasestorage.app",
+  messagingSenderId: "626645730907",
+  appId: "1:626645730907:web:ca2151bbb85c6044e2617e",
+  measurementId: "G-PPYZ56S7XX"
 };
 
-// Load Firebase v10 modules via CDN (dynamic import to keep HTML simple)
-(async () => {
-  const appMod = await import("https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js");
-  const authMod = await import("https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js");
-  const fsMod   = await import("https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js");
+const app = initializeApp(firebaseConfig);
+// const analytics = getAnalytics(app); // enable on public pages if you want
+const auth = getAuth(app);
+const db = getFirestore(app);
 
-  const app  = appMod.initializeApp(firebaseConfig);
-  const auth = authMod.getAuth(app);
-  const db   = fsMod.getFirestore(app);
+// Expose helpers the rest of the site uses
+window.fb = {
+  auth, db,
+  onAuth: (cb) => onAuthStateChanged(auth, cb),
+  signIn: (email, pass) => signInWithEmailAndPassword(auth, email, pass),
+  signOut: () => fbSignOut(auth),
+  updatePassword: (newPass) => fbUpdatePassword(auth.currentUser, newPass),
+  createUser: (email, pass) => createUserWithEmailAndPassword(auth, email, pass),
 
-  // Firestore convenience
-  const c = (path) => fsMod.collection(db, path);
-  const d = (path, id) => fsMod.doc(db, path, id);
+  // Firestore helpers
+  c: (path) => collection(db, path),
+  d: (path, id) => doc(db, path, id),
+  add: (path, data) => addDoc(collection(db, path), data),
+  set: (path, id, data) => setDoc(doc(db, path, id), data, { merge: true }),
+  get: (path, id) => getDoc(doc(db, path, id)),
+  getDocs: (col) => getDocs(col),
+  q: (path, field, op, value) => query(collection(db, path), where(field, op, value)),
+};
 
-  window.fb = {
-    auth, db,
-    onAuth(cb){ authMod.onAuthStateChanged(auth, cb); },
-    signIn(email, pass){ return authMod.signInWithEmailAndPassword(auth, email, pass); },
-    signOut(){ return authMod.signOut(auth); },
-    updatePassword(newPass){ return authMod.updatePassword(auth.currentUser, newPass); },
-    createUser(email, pass){ return authMod.createUserWithEmailAndPassword(auth, email, pass); },
-
-    // Firestore helpers
-    c, d,
-    add: (path, data) => fsMod.addDoc(c(path), data),
-    set: (path, id, data) => fsMod.setDoc(d(path, id), data, { merge: true }),
-    get: (path, id) => fsMod.getDoc(d(path, id)),
-    getDocs: (col) => fsMod.getDocs(col),
-    q: (path, field, op, value) => fsMod.query(c(path), fsMod.where(field, op, value)),
-  };
-
-  // Small helper available globally
-  window.showError = (id, msg) => {
-    const el = document.getElementById(id);
-    if (!el) return; el.hidden = false; el.textContent = msg;
-  };
-})();
+// Tiny UI error helper many pages use
+window.showError = (id, msg) => {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.hidden = false; el.textContent = msg;
+};
