@@ -1,20 +1,20 @@
-// /assets/js/firebase.js  (type="module")
+// /assets/js/firebase.js
+// Load this on every page with: <script src="/assets/js/firebase.js" type="module"></script>
+
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
 import {
-  getAuth,
-  onAuthStateChanged,
-  signInWithEmailAndPassword,
-  signOut as fbSignOut,
+  getAuth, onAuthStateChanged,
+  signInWithEmailAndPassword, signOut as fbSignOut,
   updatePassword as fbUpdatePassword,
   createUserWithEmailAndPassword,
+  signInAnonymously
 } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
 import {
-  getFirestore,
-  collection, doc, setDoc, getDoc, addDoc, getDocs, query, where,
+  getFirestore, collection, doc, setDoc, getDoc, addDoc, getDocs, query, where,
+  onSnapshot, orderBy, limit, writeBatch
 } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
-// (Optional) Analytics — safe to keep imported only on pages where you want it
-// import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-analytics.js";
 
+// --- Your project config (unchanged) ---
 const firebaseConfig = {
   apiKey: "AIzaSyBPiVMybOjwYZmcpu0DJdYcZp8Exmvia2k",
   authDomain: "dustins-universe.firebaseapp.com",
@@ -25,33 +25,46 @@ const firebaseConfig = {
   measurementId: "G-PPYZ56S7XX"
 };
 
+// 1) Initialize app BEFORE using it
 const app = initializeApp(firebaseConfig);
-// const analytics = getAnalytics(app); // enable on public pages if you want
-const auth = getAuth(app);
-const db = getFirestore(app);
 
-// Expose helpers the rest of the site uses
+// 2) Instances
+const auth = getAuth(app);
+const db   = getFirestore(app);
+
+// 3) Expose a clean helper API
 window.fb = {
-  auth, db,
+  app, auth, db,
+  // auth
   onAuth: (cb) => onAuthStateChanged(auth, cb),
   signIn: (email, pass) => signInWithEmailAndPassword(auth, email, pass),
   signOut: () => fbSignOut(auth),
   updatePassword: (newPass) => fbUpdatePassword(auth.currentUser, newPass),
   createUser: (email, pass) => createUserWithEmailAndPassword(auth, email, pass),
+  signInAnonymously: () => signInAnonymously(auth),
 
-  // Firestore helpers
+  // firestore base
   c: (path) => collection(db, path),
   d: (path, id) => doc(db, path, id),
-  add: (path, data) => addDoc(collection(db, path), data),
-  set: (path, id, data) => setDoc(doc(db, path, id), data, { merge: true }),
+
+  // accepts either a string 'collection' or a collectionRef
+  add: (pathOrRef, data) => (typeof pathOrRef === 'string'
+      ? addDoc(collection(db, pathOrRef), data)
+      : addDoc(pathOrRef, data)),
+
+  set: (path, id, data, opts={ merge:true }) => setDoc(doc(db, path, id), data, opts),
   get: (path, id) => getDoc(doc(db, path, id)),
-  getDocs: (col) => getDocs(col),
+  getDocs: (colRef) => getDocs(colRef),
   q: (path, field, op, value) => query(collection(db, path), where(field, op, value)),
+  onSnapshot, orderBy, limit, writeBatch,
 };
 
-// Tiny UI error helper many pages use
+// Tiny UI helper
 window.showError = (id, msg) => {
   const el = document.getElementById(id);
   if (!el) return;
-  el.hidden = false; el.textContent = msg;
+  el.hidden = false;
+  el.textContent = msg;
 };
+
+console.debug('[firebase] initialized');

@@ -3,167 +3,158 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Signup • Dustin Universe</title>
-  <meta name="description" content="Create a Dustin Universe admin account using an invite key." />
-  <link rel="icon" href="/images/logo.svg" />
-
-  <!-- Styles -->
+  <title>Sign up • Dustin Universe</title>
+  <link rel="icon" href="../../images/logo.svg" />
   <link rel="stylesheet" href="/assets/css/base.css" />
   <link rel="stylesheet" href="/assets/css/auth.css" />
-
   <style>
-    .key-info {
-      background: var(--panel);
-      border-radius: 12px;
-      padding: 12px;
-      font-size: 0.9rem;
-      color: var(--muted);
-      text-align: center;
-      border: 1px solid #222433;
-      margin-bottom: 10px;
-    }
-    .pass-wrap { position: relative; }
-    .toggle-pass {
-      position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
-      border: 0; background: transparent; color: var(--muted); cursor: pointer;
-    }
-    .muted-center { text-align:center; color: var(--muted); font-size: .9rem; }
+    .keypill{display:inline-block;padding:4px 10px;border:1px solid #2a2a3a;border-radius:999px;background:#12121c}
+    .hint{font-size:.9rem;color:var(--muted)}
   </style>
 </head>
+<body class="auth--center">
+  <main class="auth__card">
+    <div class="row" style="display:flex;align-items:center;gap:10px">
+      <img src="../../images/logo.svg" alt="Logo" width="28" height="28" onerror="this.style.display='none'"/>
+      <h1>Sign up</h1>
+    </div>
+    <p id="inviteInfo" class="hint">Validating your invite…</p>
+    <p id="error" class="error" hidden></p>
 
-<body>
-  <main class="auth auth--center">
-    <form id="signupForm" class="card auth__card" novalidate>
-      <div class="auth__logo" style="display:flex;align-items:center;gap:.6rem;">
-        <img src="/images/logo.svg" alt="" width="28" height="28" />
-        <strong>Dustin Universe</strong>
-      </div>
-
-      <h1>Create Account</h1>
-      <p class="muted">Use the invite key your admin gave you.</p>
-
-      <div class="key-info" id="keyDisplay" hidden></div>
-
-      <label>Invite Key
-        <input type="text" id="inviteKey" placeholder="XXXX-XXXX" required />
-      </label>
-
+    <form id="signupForm" autocomplete="on">
       <label>Email
-        <input type="email" id="email" placeholder="you@example.com" required autocomplete="email" />
+        <input id="email" type="email" required placeholder="you@example.com" />
       </label>
-
       <label>Password
-        <span class="pass-wrap">
-          <input type="password" id="password" minlength="8" required placeholder="Minimum 8 characters" autocomplete="new-password" />
-          <button type="button" id="togglePass" class="toggle-pass">👁</button>
-        </span>
+        <input id="password" type="password" required minlength="6" placeholder="At least 6 characters" />
       </label>
-
-      <button type="submit" id="signupBtn">Sign Up</button>
-      <p id="signupError" class="error" role="alert" hidden></p>
-
-      <p class="muted-center"><a href="/pages/admin/index.html">← Back to Login</a></p>
+      <button type="submit">Create account</button>
+      <p id="msg" class="hint"></p>
     </form>
+
+    <p class="hint">Already have an account? <a href="/pages/admin/index.html">Log in</a></p>
   </main>
 
-  <!-- Scripts -->
+  <!-- Firebase bootstrap (must be module) -->
   <script src="/assets/js/firebase.js" type="module"></script>
 
-  <script>
-    // Wait for firebase to be ready
-    async function waitForFirebase() {
-      if (window.fb && window.fb.get) return;
-      await new Promise(r => setTimeout(r, 50));
-      return waitForFirebase();
+  <!-- Signup logic -->
+  <script type="module">
+    import {
+      getAuth, createUserWithEmailAndPassword
+    } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
+
+    import {
+      getFirestore, doc, getDoc, writeBatch
+    } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
+
+    const auth = getAuth();
+    const db   = getFirestore();
+
+    const $ = (id) => document.getElementById(id);
+
+    function getInviteKeyFromURL() {
+      const u = new URL(location.href);
+      return (u.searchParams.get('key') || '').trim();
     }
 
-    document.addEventListener("DOMContentLoaded", async () => {
-      await waitForFirebase();
-      const form = document.getElementById("signupForm");
-      const inviteKeyInput = document.getElementById("inviteKey");
-      const keyDisplay = document.getElementById("keyDisplay");
-      const passInput = document.getElementById("password");
-      const togglePass = document.getElementById("togglePass");
-      const errorBox = document.getElementById("signupError");
-
-      // Toggle password visibility
-      togglePass.addEventListener("click", () => {
-        const isPass = passInput.type === "password";
-        passInput.type = isPass ? "text" : "password";
-        togglePass.textContent = isPass ? "🙈" : "👁";
-      });
-
-      // If invite key passed via URL (?key=XXXX)
-      const params = new URLSearchParams(window.location.search);
-      const urlKey = params.get("key");
-      if (urlKey) {
-        inviteKeyInput.value = urlKey.toUpperCase();
-        keyDisplay.hidden = false;
-        keyDisplay.textContent = `Invite key prefilled: ${urlKey}`;
+    async function loadInvite() {
+      const key = getInviteKeyFromURL();
+      if (!key) {
+        showError("Missing invite key. Please use the link sent to you.");
+        $('inviteInfo').textContent = 'No invite key in URL.';
+        $('signupForm').hidden = true;
+        return null;
       }
-
-      // Submit handler
-      form.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        errorBox.hidden = true;
-        const key = inviteKeyInput.value.trim().toUpperCase();
-        const email = document.getElementById("email").value.trim();
-        const password = passInput.value;
-
-        if (!key || !email || !password) {
-          errorBox.textContent = "All fields are required.";
-          errorBox.hidden = false;
-          return;
+      try {
+        const ref = doc(db, 'inviteKeys', key);
+        const snap = await getDoc(ref);
+        if (!snap.exists()) {
+          showError("Invalid invite key.");
+          $('inviteInfo').textContent = 'Invalid invite key.';
+          $('signupForm').hidden = true;
+          return null;
         }
-
-        try {
-          // Validate key in Firestore
-          const keySnap = await window.fb.get("inviteKeys", key);
-          if (!keySnap.exists()) throw new Error("Invalid invite key.");
-          const keyData = keySnap.data();
-          if (keyData.used) throw new Error("This invite key has already been used.");
-
-          // Create user
-          const cred = await window.fb.createUser(email, password);
-          const uid = cred.user.uid;
-
-          // Assign role/teams from key
-          const role = keyData.role || "viewer";
-          const teams = keyData.teams || [];
-
-          await window.fb.set("users", uid, {
-            email,
-            role,
-            teams,
-            createdAt: Date.now(),
-            invitedBy: keyData.createdBy || "unknown",
-          });
-
-          // Mark key as used
-          await window.fb.set("inviteKeys", key, {
-            ...keyData,
-            used: true,
-            usedAt: Date.now(),
-            usedBy: email,
-          });
-
-          // Log activity
-          try {
-            await window.fb.add("activity", {
-              type: "signup",
-              userEmail: email,
-              ts: Date.now(),
-            });
-          } catch (_) {}
-
-          // Redirect
-          window.location.href = "/pages/admin/dashboard.html";
-        } catch (err) {
-          console.error(err);
-          errorBox.textContent = err.message || "Signup failed.";
-          errorBox.hidden = false;
+        const data = snap.data();
+        if (data.used === true) {
+          showError("This invite key has already been used.");
+          $('inviteInfo').textContent = 'Invite already used.';
+          $('signupForm').hidden = true;
+          return null;
         }
+        // Display summary
+        const role = data.role || 'viewer';
+        const teams = Array.isArray(data.teams) ? data.teams : [];
+        $('inviteInfo').innerHTML =
+          `Invite: <span class="keypill">${key}</span> • Role: <strong>${role}</strong>` +
+          (teams.length ? ` • Teams: <strong>${teams.join(', ')}</strong>` : '');
+        return { key, role, teams };
+      } catch (e) {
+        showError(e.message || "Failed to validate invite.");
+        $('signupForm').hidden = true;
+        return null;
+      }
+    }
+
+    function showError(msg) {
+      const el = $('error');
+      el.hidden = false; el.textContent = msg;
+    }
+
+    async function signUpWithInvite(email, password, invite) {
+      // 1) Create Auth user
+      const cred = await createUserWithEmailAndPassword(auth, email, password);
+      const uid  = cred.user.uid;
+
+      // 2) Atomic writes: user doc + consume invite
+      const batch = writeBatch(db);
+
+      // users/{uid} — role/teams MUST match invite; include inviteKey
+      batch.set(doc(db, 'users', uid), {
+        email,
+        role: invite.role,
+        teams: invite.teams || [],
+        inviteKey: invite.key,
+        createdAt: Date.now()
+      }, { merge: true });
+
+      // inviteKeys/{key} — used:true, usedBy:uid
+      batch.update(doc(db, 'inviteKeys', invite.key), {
+        used: true,
+        usedBy: uid,
+        usedAt: Date.now()
       });
+
+      await batch.commit();
+      return uid;
+    }
+
+    // Init: validate invite first
+    let inviteData = null;
+    (async () => {
+      inviteData = await loadInvite();
+    })();
+
+    // Form handler
+    $('signupForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      $('msg').textContent = '';
+      if (!inviteData) return;
+
+      const email = $('email').value.trim();
+      const pass  = $('password').value;
+
+      if (!email || !pass) return;
+
+      $('msg').textContent = 'Creating your account…';
+      try {
+        await signUpWithInvite(email, pass, inviteData);
+        $('msg').textContent = 'Success! Redirecting…';
+        location.href = '/pages/admin/dashboard.html';
+      } catch (err) {
+        $('msg').textContent = err.message || 'Signup failed.';
+        console.error(err);
+      }
     });
   </script>
 </body>
